@@ -2,6 +2,8 @@ package autoreactions
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -69,7 +71,39 @@ type GetType struct {
 }
 
 func (service *Service) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
-	panic("TODO!")
+	if ctx.Author.Bot {
+		return
+	}
+
+	data, err := service.database.GetOne(ctx.Context(), ctx.GuildID.String(), ctx.ChannelID().String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return
+		}
+		service.logger.Error(err.Error())
+		return
+	}
+
+	switch data.Type {
+	case domain.AutoReactionTypeAttachment:
+		if len(ctx.Attachments) == 0 {
+			return
+		}
+		if err := ctx.React(data.Emoji); err != nil {
+			service.logger.Error(err.Error())
+		}
+		return
+	case domain.AutoReactionTypeMessage:
+		if len(ctx.Content) == 0 {
+			return
+		}
+		if err := ctx.React(data.Emoji); err != nil {
+			service.logger.Error(err.Error())
+		}
+		return
+	default:
+		return
+	}
 }
 
 func (service *Service) AutoReactionsSetup(ctx *bot.InteractionContext) {
@@ -113,8 +147,8 @@ func (service *Service) AutoReactionsSetup(ctx *bot.InteractionContext) {
 		Build()
 
 	row := components.NewActionRowBuilder().AddComponents(selectMenuBuilder)
-	if _, err := ctx.FollowupComplex(rest.ExecuteWebhookParams{
-		Components: []components.Component{row},
+	if _, err := ctx.EditReplyComplex(rest.EditMessageParams{
+		Components: &[]components.Component{row},
 	}); err != nil {
 		service.responder.SendError(ctx, err)
 		return
@@ -158,7 +192,7 @@ func (service *Service) AutoReactionsSetup(ctx *bot.InteractionContext) {
 }
 
 func (service *Service) Create(ctx *bot.InteractionContext) error {
-	if err := ctx.DeferEphemeral(); err != nil {
+	if err := ctx.DeferUpdate(); err != nil {
 		return err
 	}
 
@@ -213,18 +247,23 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 	timeout, cancel = context.WithTimeout(interaction.Context(), 2*time.Minute)
 	defer cancel()
 	interaction, err = interaction.Bot.AwaitInteraction(timeout, func(ic *bot.InteractionContext) bool {
-		return ic.CustomID() == menuID &&
+		return ic.IsModalSubmit() &&
+			ic.CustomID() == menuID &&
 			ic.User().ID == ctx.User().ID
 	})
 	if err != nil {
 		return err
 	}
 
+	if err := interaction.DeferUpdate(); err != nil {
+		return err
+	}
+
 	emoji := interaction.ModalValue(inputID)
 
 	options := []components.SelectOption{
-		components.NewSelectOptionBuilder().SetLabel("Mensagem").SetValue("mensagem").SetDescription("Monitorar as mensagens recebidas no canal").Build(),
-		components.NewSelectOptionBuilder().SetLabel("Anexos").SetValue("attachment").SetDescription("Monitorar os anexos recebidos no canal").Build(),
+		components.NewSelectOptionBuilder().SetLabel("Mensagem").SetValue(string(domain.AutoReactionTypeMessage)).SetDescription("Monitorar as mensagens recebidas no canal").Build(),
+		components.NewSelectOptionBuilder().SetLabel("Anexos").SetValue(string(domain.AutoReactionTypeAttachment)).SetDescription("Monitorar os anexos recebidos no canal").Build(),
 	}
 
 	stringSelectMenuID := uuid.NewString()
@@ -237,13 +276,7 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 		Build()
 
 	row = components.NewActionRowBuilder().AddComponents(stringSelectMenu).Build()
-	if _, err := ctx.EditReplyComplex(rest.EditMessageParams{
-		Components: &[]components.Component{row},
-	}); err != nil {
-		return err
-	}
-
-	if _, err := ctx.EditReplyComplex(rest.EditMessageParams{
+	if _, err := interaction.EditReplyComplex(rest.EditMessageParams{
 		Components: &[]components.Component{row},
 	}); err != nil {
 		return err
@@ -256,6 +289,10 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 			ic.User().ID == ctx.User().ID
 	})
 	if err != nil {
+		return err
+	}
+
+	if err := interaction.DeferUpdate(); err != nil {
 		return err
 	}
 
@@ -278,13 +315,14 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 		Description:      fmt.Sprintf("**Identificador:** %d\n", res.ID),
 		WithTimestampNow: true,
 		WithColor:        true,
+		ClearComponents:  true,
 	})
 
 	return nil
 }
 
 func (service *Service) Obtain(ctx *bot.InteractionContext) error {
-	if err := ctx.DeferEphemeral(); err != nil {
+	if err := ctx.DeferUpdate(); err != nil {
 		return err
 	}
 
@@ -314,6 +352,10 @@ func (service *Service) Obtain(ctx *bot.InteractionContext) error {
 		return err
 	}
 
+	if err := interaction.DeferUpdate(); err != nil {
+		return err
+	}
+
 	channelID := interaction.Values()[0]
 	data, err := service.database.GetOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
 	if err != nil {
@@ -324,13 +366,14 @@ func (service *Service) Obtain(ctx *bot.InteractionContext) error {
 		Title:            fmt.Sprintf("**Identificador:** %d", data.ID),
 		WithTimestampNow: true,
 		WithColor:        true,
+		ClearComponents:  true,
 	})
 
 	return nil
 }
 
 func (service *Service) Update(ctx *bot.InteractionContext) error {
-	if err := ctx.DeferEphemeral(); err != nil {
+	if err := ctx.DeferUpdate(); err != nil {
 		return err
 	}
 
@@ -385,10 +428,15 @@ func (service *Service) Update(ctx *bot.InteractionContext) error {
 	timeout, cancel = context.WithTimeout(interaction.Context(), 2*time.Minute)
 	defer cancel()
 	interaction, err = interaction.Bot.AwaitInteraction(timeout, func(ic *bot.InteractionContext) bool {
-		return ic.CustomID() == menuID &&
+		return ic.IsModalSubmit() &&
+			ic.CustomID() == menuID &&
 			ic.User().ID == ctx.User().ID
 	})
 	if err != nil {
+		return err
+	}
+
+	if err := interaction.DeferUpdate(); err != nil {
 		return err
 	}
 
@@ -402,13 +450,14 @@ func (service *Service) Update(ctx *bot.InteractionContext) error {
 		Title:            fmt.Sprintf("**Identificador:** %d", data.ID),
 		WithTimestampNow: true,
 		WithColor:        true,
+		ClearComponents:  true,
 	})
 
 	return nil
 }
 
 func (service *Service) Delete(ctx *bot.InteractionContext) error {
-	if err := ctx.DeferEphemeral(); err != nil {
+	if err := ctx.DeferUpdate(); err != nil {
 		return err
 	}
 
@@ -438,6 +487,10 @@ func (service *Service) Delete(ctx *bot.InteractionContext) error {
 		return err
 	}
 
+	if err := interaction.DeferUpdate(); err != nil {
+		return err
+	}
+
 	channelID := interaction.Values()[0]
 	data, err := service.database.DeleteOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
 	if err != nil {
@@ -448,6 +501,7 @@ func (service *Service) Delete(ctx *bot.InteractionContext) error {
 		Title:            fmt.Sprintf("**Identificador:** %d", data.ID),
 		WithTimestampNow: true,
 		WithColor:        true,
+		ClearComponents:  true,
 	})
 
 	return nil
