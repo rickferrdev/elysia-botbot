@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/discord-go/discord.go/bot"
+	"github.com/discord-go/discord.go/components"
 	"github.com/discord-go/discord.go/interactions"
 	"github.com/discord-go/discord.go/messages"
 	"github.com/discord-go/discord.go/rest"
@@ -19,6 +20,7 @@ type Message struct {
 	Description      string
 	WithTimestampNow bool
 	WithColor        bool
+	ClearComponents  bool
 }
 
 type Interface interface {
@@ -54,7 +56,7 @@ func (responder Responder) SendError(ctx *bot.InteractionContext, err error) {
 		SetTimestampNow().
 		SetColor(0xfdfd96)
 
-	responder.handler(ctx, err, embed.Build())
+	responder.handler(ctx, err, embed.Build(), false)
 }
 
 func (responder Responder) SendMessage(ctx *bot.InteractionContext, message Message) {
@@ -72,10 +74,10 @@ func (responder Responder) SendMessage(ctx *bot.InteractionContext, message Mess
 		embed.SetTimestampNow()
 	}
 
-	responder.handler(ctx, nil, embed.Build())
+	responder.handler(ctx, nil, embed.Build(), message.ClearComponents)
 }
 
-func (responder Responder) handler(ctx *bot.InteractionContext, err error, embed messages.Embed) {
+func (responder Responder) handler(ctx *bot.InteractionContext, err error, embed messages.Embed, clearComponents bool) {
 	if err != nil {
 		responder.logger.Error(err.Error())
 	}
@@ -95,9 +97,14 @@ func (responder Responder) handler(ctx *bot.InteractionContext, err error, embed
 	}
 
 	if ctx.Deferred() {
-		_, serr := ctx.EditReplyComplex(rest.EditMessageParams{
+		params := rest.EditMessageParams{
 			Embeds: &[]messages.Embed{embed},
-		})
+		}
+		if clearComponents {
+			emptyComponents := []components.Component{}
+			params.Components = &emptyComponents
+		}
+		_, serr := ctx.EditReplyComplex(params)
 		if serr != nil {
 			responder.logger.Error(serr.Error())
 		}
