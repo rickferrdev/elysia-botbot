@@ -62,7 +62,7 @@ func (service *Service) EmbedsSetup(ctx *bot.InteractionContext) {
 
 	menuID := uuid.NewString()
 	options := []components.SelectOption{
-		components.NewSelectOptionBuilder().SetLabel("Criar").SetDescription("Criar uma incorporação.").SetValue("add").Build(),
+		components.NewSelectOptionBuilder().SetLabel("Criar").SetDescription("Criar uma incorporação.").SetValue("create").Build(),
 		components.NewSelectOptionBuilder().SetLabel("Obter").SetDescription("Obter uma incorporação.").SetValue("obtain").Build(),
 		components.NewSelectOptionBuilder().SetLabel("Enviar").SetDescription("Enviar uma incorporação.").SetValue("publish").Build(),
 		components.NewSelectOptionBuilder().SetLabel("Deletar").SetDescription("Deletar uma incorporação.").SetValue("delete").Build(),
@@ -95,8 +95,8 @@ func (service *Service) EmbedsSetup(ctx *bot.InteractionContext) {
 	}
 
 	switch ic.Values()[0] {
-	case "add":
-		err := service.EmbedsCreate(ic)
+	case "create":
+		err := service.Create(ic)
 		if err != nil {
 			service.responder.SendError(ic, err)
 		}
@@ -158,9 +158,9 @@ func (service *Service) GetMenuID(ctx *bot.InteractionContext) (*MenuID, error) 
 	return &MenuID{interaction, id}, nil
 }
 
-func (service *Service) EmbedsCreate(ctx *bot.InteractionContext) error {
+func (service *Service) Create(ctx *bot.InteractionContext) error {
 	userID, channelID := ctx.User().ID, ctx.ChannelID()
-	if err := ctx.DeferEphemeral(); err != nil {
+	if err := ctx.DeferUpdate(); err != nil {
 		return err
 	}
 
