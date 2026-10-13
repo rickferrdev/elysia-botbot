@@ -1,15 +1,16 @@
 package server
 
 import (
-	"errors"
 	"log/slog"
 
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/components"
 	"github.com/google/uuid"
+	"github.com/rickferrdev/elysia-botbot/internal/core"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
+	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/server"
 	"go.uber.org/fx"
 )
@@ -21,6 +22,7 @@ type (
 		flow      interactionflow.Interface
 		responder responder.Interface
 		storage   server.Interface
+		logger    *slog.Logger
 	}
 	Params struct {
 		fx.In
@@ -40,6 +42,7 @@ func New(params Params) *Service {
 		flow:      params.InteractionFlow,
 		responder: params.Responder,
 		storage:   params.ServerStorage,
+		logger:    params.Logger,
 	}
 
 	return &service
@@ -47,7 +50,6 @@ func New(params Params) *Service {
 
 func (service *Service) ServerSetup(ctx *bot.InteractionContext, router *bot.Router) {
 	if err := ctx.DeferEphemeral(); err != nil {
-		service.responder.SendError(ctx, err)
 		return
 	}
 
@@ -73,21 +75,24 @@ func (service *Service) ServerSetup(ctx *bot.InteractionContext, router *bot.Rou
 			Build(),
 	)
 	if err != nil {
-		service.responder.SendError(ctx, err)
+		service.responder.
+			Sender(responder.WithStatusInternalServerError(ctx, err))
 		return
 	}
 
 	switch interaction.Values()[0] {
 	case "obtain":
 		if err := service.Obtain(interaction); err != nil {
-			service.responder.SendError(interaction, err)
-			return
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	case "upsert":
-		if err := service.Obtain(interaction); err != nil {
-			service.responder.SendError(interaction, err)
-			return
+		if err := service.Create(interaction); err != nil {
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	default:
@@ -102,18 +107,18 @@ func (service *Service) Obtain(ctx *bot.InteractionContext) error {
 
 	data, err := service.storage.GetServerWithConfig(ctx.Context(), ctx.Guild.ID.String())
 	if err != nil {
+		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
+			service.responder.Sender(responder.WithStatusNotFound(ctx, err))
+			return nil
+		}
 		return err
 	}
 	if data.Config == nil {
-		return errors.New("config not found")
+		service.responder.Sender(responder.WithCustomMessage(ctx, "config does not exist", "", nil))
+		return nil
 	}
 
-	service.responder.SendMessage(ctx, responder.Message{
-		Title:            "Ok",
-		WithTimestampNow: true,
-		WithColor:        true,
-	})
-
+	service.responder.Sender(responder.WithStatusOk(ctx, nil))
 	return nil
 }
 
@@ -147,14 +152,13 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 		},
 	})
 	if err != nil {
+		if core.IsCode(err, repoerrors.CodeSqlConflict) {
+			service.responder.Sender(responder.WithStatusConflict(interaction, err))
+			return nil
+		}
 		return err
 	}
 
-	service.responder.SendMessage(interaction, responder.Message{
-		Title:            "Ok",
-		WithTimestampNow: true,
-		WithColor:        true,
-	})
-
+	service.responder.Sender(responder.WithStatusCreated(interaction, nil))
 	return nil
 }

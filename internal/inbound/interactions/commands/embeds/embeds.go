@@ -1,8 +1,6 @@
 package embeds
 
 import (
-	"log/slog"
-
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/permissions"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/embeds"
@@ -16,19 +14,16 @@ type Params struct {
 	fx.In
 	EmbedsService embeds.Interface
 	Client        *discord.DiscordClient
-	Logger        *slog.Logger
 }
 
 type Embeds struct {
 	service embeds.Interface
 	client  *discord.DiscordClient
-	logger  *slog.Logger
 }
 
 func New(params Params) *Embeds {
 	embeds := Embeds{
 		client:  params.Client,
-		logger:  params.Logger,
 		service: params.EmbedsService,
 	}
 

@@ -15,9 +15,11 @@ import (
 	"github.com/discord-go/discord.go/rest"
 	"github.com/discord-go/discord.go/snowflake"
 	"github.com/google/uuid"
+	"github.com/rickferrdev/elysia-botbot/internal/core"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
+	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/embeds"
 	"go.uber.org/fx"
 )
@@ -98,39 +100,46 @@ func (service *Service) EmbedsSetup(ctx *bot.InteractionContext) {
 		Build(),
 	)
 	if err != nil {
-		service.responder.SendError(ctx, err)
+		service.responder.Sender(
+			responder.WithStatusInternalServerError(ctx, err),
+		)
 		return
 	}
 
 	switch interaction.Values()[0] {
 	case "create":
-		err := service.Create(interaction)
-		if err != nil {
-			service.responder.SendError(interaction, err)
+		if err := service.Create(interaction); err != nil {
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	case "delete":
-		err := service.Delete(interaction)
-		if err != nil {
-			service.responder.SendError(interaction, err)
+		if err := service.Delete(interaction); err != nil {
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	case "obtain":
-		err := service.Obtain(interaction)
-		if err != nil {
-			service.responder.SendError(interaction, err)
+		if err := service.Obtain(interaction); err != nil {
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	case "publish":
-		err := service.Publish(interaction)
-		if err != nil {
-			service.responder.SendError(interaction, err)
+		if err := service.Publish(interaction); err != nil {
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	case "update":
-		err := service.Update(interaction)
-		if err != nil {
-			service.responder.SendError(interaction, err)
+		if err := service.Update(interaction); err != nil {
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	default:
@@ -157,7 +166,7 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 	message, err := ctx.Bot.AwaitMessage(await, func(mc *bot.MessageContext) bool {
 		return mc.Author.ID == userID &&
 			mc.ChannelID() == channelID &&
-			len(mc.Attachments) > 0 || strings.TrimSpace(mc.Content) != ""
+			(len(mc.Attachments) > 0 || strings.TrimSpace(mc.Content) != "")
 	})
 	if err != nil {
 		return err
@@ -173,16 +182,14 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 			return err
 		}
 	default:
+		service.responder.Sender(responder.WithStatusBadRequest(
+			ctx,
+			errors.New("message must contain JSON content or an attachment"),
+		))
 		return nil
 	}
 
-	service.responder.SendMessage(ctx, responder.Message{
-		Title:            "Ok",
-		WithTimestampNow: true,
-		WithColor:        true,
-	})
-
-	return nil
+	return service.responder.Sender(responder.WithStatusCreated(ctx, nil))
 }
 
 func (service *Service) Obtain(ctx *bot.InteractionContext) error {
@@ -212,6 +219,10 @@ func (service *Service) Obtain(ctx *bot.InteractionContext) error {
 
 	embed, err := service.database.GetOne(interaction.Context(), id)
 	if err != nil {
+		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
+			service.responder.Sender(responder.WithStatusNotFound(interaction, err))
+			return nil
+		}
 		return err
 	}
 
@@ -227,6 +238,8 @@ func (service *Service) Obtain(ctx *bot.InteractionContext) error {
 		}); err != nil {
 			return err
 		}
+	} else {
+		return service.responder.Sender(responder.WithStatusOk(interaction, nil))
 	}
 
 	return nil
@@ -280,6 +293,10 @@ func (service *Service) Publish(ctx *bot.InteractionContext) error {
 
 	data, err := service.database.GetOne(interaction.Context(), id)
 	if err != nil {
+		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
+			service.responder.Sender(responder.WithStatusNotFound(interaction, err))
+			return nil
+		}
 		return err
 	}
 
@@ -295,13 +312,7 @@ func (service *Service) Publish(ctx *bot.InteractionContext) error {
 		return err
 	}
 
-	service.responder.SendMessage(interaction, responder.Message{
-		Title:            "Ok",
-		WithTimestampNow: true,
-		WithColor:        true,
-	})
-
-	return nil
+	return service.responder.Sender(responder.WithStatusCreated(interaction, nil))
 }
 
 func (service *Service) Update(ctx *bot.InteractionContext) error {
@@ -328,16 +339,16 @@ func (service *Service) Update(ctx *bot.InteractionContext) error {
 		return err
 	}
 
-	if _, err := ctx.EditReply("Envie o JSON como arquivo ou cole o conteúdo JSON nesta conversa."); err != nil {
+	if _, err := interaction.EditReply("Envie o JSON como arquivo ou cole o conteúdo JSON nesta conversa."); err != nil {
 		return err
 	}
 
-	await, cancel := context.WithTimeout(ctx.Context(), 2*time.Minute)
+	await, cancel := context.WithTimeout(interaction.Context(), 2*time.Minute)
 	defer cancel()
 	message, err := ctx.Bot.AwaitMessage(await, func(mc *bot.MessageContext) bool {
 		return mc.Author.ID == interaction.User().ID &&
 			mc.ChannelID() == interaction.ChannelID() &&
-			len(mc.Attachments) > 0 || strings.TrimSpace(mc.Content) != ""
+			(len(mc.Attachments) > 0 || strings.TrimSpace(mc.Content) != "")
 	})
 	if err != nil {
 		return err
@@ -353,16 +364,14 @@ func (service *Service) Update(ctx *bot.InteractionContext) error {
 			return err
 		}
 	default:
+		service.responder.Sender(responder.WithStatusBadRequest(
+			ctx,
+			errors.New("message must contain JSON content or an attachment"),
+		))
 		return nil
 	}
 
-	service.responder.SendMessage(ctx, responder.Message{
-		Title:            "Ok",
-		WithTimestampNow: true,
-		WithColor:        true,
-	})
-
-	return nil
+	return service.responder.Sender(responder.WithStatusOk(interaction, nil))
 }
 
 func (service *Service) Delete(ctx *bot.InteractionContext) error {
@@ -394,16 +403,11 @@ func (service *Service) Delete(ctx *bot.InteractionContext) error {
 		return err
 	}
 
-	service.responder.SendMessage(interaction, responder.Message{
-		Title:            "Ok",
-		WithTimestampNow: true,
-		WithColor:        true,
-	})
-	return nil
+	return service.responder.Sender(responder.WithStatusNoContent(interaction, nil))
 }
 
 func (service *Service) HandlerAttachments(message *bot.MessageContext) error {
-	return nil
+	return errors.New("embed attachment handling is not implemented")
 }
 
 func (service *Service) HandlerMessageContent(message *bot.MessageContext, id int) error {
@@ -414,7 +418,7 @@ func (service *Service) HandlerMessageContent(message *bot.MessageContext, id in
 
 	var embedContent domain.EmbedContentDecode
 	if err := json.Unmarshal([]byte(formatted), &embedContent); err != nil {
-		return err
+		return errors.New("invalid json")
 	}
 	bytes, err := json.Marshal(embedContent)
 	if err != nil {

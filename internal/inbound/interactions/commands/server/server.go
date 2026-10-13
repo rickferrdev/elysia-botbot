@@ -1,8 +1,6 @@
 package server
 
 import (
-	"log/slog"
-
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/permissions"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/server"
@@ -16,19 +14,16 @@ type Params struct {
 	fx.In
 	ServerService server.Interface
 	Client        *discord.DiscordClient
-	Logger        *slog.Logger
 }
 
 type Server struct {
 	service server.Interface
 	client  *discord.DiscordClient
-	logger  *slog.Logger
 }
 
 func New(args Params) *Server {
 	server := Server{
 		client:  args.Client,
-		logger:  args.Logger,
 		service: args.ServerService,
 	}
 

@@ -1,8 +1,6 @@
 package autoreactions
 
 import (
-	"log/slog"
-
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/permissions"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/autoreactions"
@@ -16,19 +14,16 @@ type Params struct {
 	fx.In
 	AutoReactionsService autoreactions.Interface
 	Client               *discord.DiscordClient
-	Logger               *slog.Logger
 }
 
 type Server struct {
 	service autoreactions.Interface
 	client  *discord.DiscordClient
-	logger  *slog.Logger
 }
 
 func New(params Params) *Server {
 	server := Server{
 		client:  params.Client,
-		logger:  params.Logger,
 		service: params.AutoReactionsService,
 	}
 
