@@ -1,17 +1,14 @@
 package server
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/components"
-	"github.com/discord-go/discord.go/rest"
 	"github.com/google/uuid"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
+	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/server"
 	"go.uber.org/fx"
@@ -21,14 +18,16 @@ var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
 
 type (
 	Service struct {
+		flow      interactionflow.Interface
 		responder responder.Interface
 		storage   server.Interface
 	}
 	Params struct {
 		fx.In
-		Responder     responder.Interface
-		Logger        *slog.Logger
-		ServerStorage server.Interface
+		InteractionFlow interactionflow.Interface
+		Responder       responder.Interface
+		Logger          *slog.Logger
+		ServerStorage   server.Interface
 	}
 )
 
@@ -38,6 +37,7 @@ type Interface interface {
 
 func New(params Params) *Service {
 	service := Service{
+		flow:      params.InteractionFlow,
 		responder: params.Responder,
 		storage:   params.ServerStorage,
 	}
@@ -52,48 +52,33 @@ func (service *Service) ServerSetup(ctx *bot.InteractionContext, router *bot.Rou
 	}
 
 	menuID := uuid.NewString()
-	options := []components.SelectOption{
-		components.NewSelectOptionBuilder().
-			SetLabel("Obter configurações").
-			SetValue("read").
-			SetDescription("Consultar as configurações atuais do servidor").
+	interaction, err := service.flow.AwaitStringSelect(
+		ctx,
+		[]components.SelectOption{
+			components.NewSelectOptionBuilder().
+				SetLabel("Obter configurações").
+				SetValue("obtain").
+				SetDescription("Consultar as configurações atuais do servidor").
+				Build(),
+			components.NewSelectOptionBuilder().
+				SetLabel("Criar/Atualizar configurações").
+				SetValue("upsert").
+				SetDescription("Criar ou atualizar as configurações do servidor").
+				Build(),
+		}, components.NewStringSelectMenuBuilder().
+			SetCustomID(menuID).
+			SetPlaceholder("Selecione uma opção").
+			SetMinValues(1).
+			SetMaxValues(1).
 			Build(),
-
-		components.NewSelectOptionBuilder().
-			SetLabel("Criar/Atualizar configurações").
-			SetValue("upsert").
-			SetDescription("Criar ou atualizar as configurações do servidor").
-			Build(),
-	}
-
-	stringSelectMenu := components.NewStringSelectMenuBuilder().
-		SetCustomID(menuID).
-		SetPlaceholder("Selecione uma opção").
-		AddOptions(options[0], options[1]).
-		SetMinValues(1).
-		SetMaxValues(1).
-		Build()
-
-	row := components.NewActionRowBuilder().AddComponents(stringSelectMenu).Build()
-	if _, err := ctx.EditReplyComplex(rest.EditMessageParams{
-		Components: &[]components.Component{row},
-	}); err != nil {
-		service.responder.SendError(ctx, err)
-		return
-	}
-
-	await, cancel := context.WithTimeout(ctx.Context(), 2*time.Minute)
-	defer cancel()
-	interaction, err := ctx.Bot.AwaitInteraction(await, func(ic *bot.InteractionContext) bool {
-		return ic.CustomID() == menuID && ic.User().ID == ctx.User().ID
-	})
+	)
 	if err != nil {
 		service.responder.SendError(ctx, err)
 		return
 	}
 
 	switch interaction.Values()[0] {
-	case "read":
+	case "obtain":
 		if err := service.Obtain(interaction); err != nil {
 			service.responder.SendError(interaction, err)
 			return
@@ -111,7 +96,7 @@ func (service *Service) ServerSetup(ctx *bot.InteractionContext, router *bot.Rou
 }
 
 func (service *Service) Obtain(ctx *bot.InteractionContext) error {
-	if err := ctx.DeferEphemeral(); err != nil {
+	if err := ctx.DeferUpdate(); err != nil {
 		return err
 	}
 
@@ -124,7 +109,7 @@ func (service *Service) Obtain(ctx *bot.InteractionContext) error {
 	}
 
 	service.responder.SendMessage(ctx, responder.Message{
-		Title:            fmt.Sprintf("**Identificador:** %d", data.ID),
+		Title:            "Ok",
 		WithTimestampNow: true,
 		WithColor:        true,
 	})
@@ -135,31 +120,22 @@ func (service *Service) Obtain(ctx *bot.InteractionContext) error {
 func (service *Service) Create(ctx *bot.InteractionContext) error {
 	inputID := uuid.NewString()
 	modalID := uuid.NewString()
-
-	input := components.NewTextInputBuilder().
-		SetCustomID(inputID).
-		SetLabel("Digite um prefixo para o bot").
-		SetStyle(components.TextInputStyleShort).
-		SetPlaceholder("e!").
-		SetRequired(true).
-		SetMaxLength(1).
-		Build()
-
-	row := components.NewActionRowBuilder().AddComponents(input)
-	if err := ctx.ShowModal(modalID, "Adicionar/Atualizar as configurações", row); err != nil {
-		return err
-	}
-
-	await, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	interaction, err := ctx.Bot.AwaitInteraction(await, func(ic *bot.InteractionContext) bool {
-		return ic.CustomID() == modalID && ic.User().ID == ctx.User().ID
-	})
+	interaction, err := service.flow.AwaitSimpleTextModal(ctx,
+		components.NewTextInputBuilder().
+			SetCustomID(inputID).
+			SetLabel("Digite um prefixo para o bot").
+			SetStyle(components.TextInputStyleShort).
+			SetPlaceholder("e!").
+			SetRequired(true).
+			SetMaxLength(1).
+			Build(),
+		components.NewModalBuilder().SetCustomID(modalID).SetTitle("Adicionar/Atualizar as configurações").Build(),
+	)
 	if err != nil {
 		return err
 	}
 
-	if err := interaction.DeferEphemeral(); err != nil {
+	if err := interaction.DeferUpdate(); err != nil {
 		return err
 	}
 
@@ -175,7 +151,7 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 	}
 
 	service.responder.SendMessage(interaction, responder.Message{
-		Title:            "Operação concluída",
+		Title:            "Ok",
 		WithTimestampNow: true,
 		WithColor:        true,
 	})

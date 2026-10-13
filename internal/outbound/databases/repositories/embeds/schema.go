@@ -11,9 +11,9 @@ type SchemaEmbed struct {
 	bun.BaseModel `bun:"table:embeds,alias:embed"`
 	ID            int `bun:"id,pk,autoincrement"`
 
-	GuildID   string    `bun:"guild_id"`
-	UserID    string    `bun:"user_id"`
-	Content   string    `bun:"content"`
+	GuildID   string    `bun:"guild_id,notnull"`
+	UserID    string    `bun:"user_id,notnull"`
+	Content   string    `bun:"content,notnull"`
 	CreatedAt time.Time `bun:"created_at"`
 	UpdatedAt time.Time `bun:"updated_at"`
 }
