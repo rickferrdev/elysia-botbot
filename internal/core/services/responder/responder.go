@@ -1,9 +1,9 @@
 package responder
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/components"
@@ -13,19 +13,19 @@ import (
 	"go.uber.org/fx"
 )
 
-var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
+var Provide = fx.Provide(
+	fx.Annotate(New, fx.As(new(Interface))),
+)
 
-type Message struct {
-	Title            string
-	Description      string
-	WithTimestampNow bool
-	WithColor        bool
-	ClearComponents  bool
-}
+const (
+	ColorSuccess = 0xA6E3A1 // Soft green
+	ColorError   = 0xF38BA8 // Soft red
+	ColorInfo    = 0x89B4FA // Soft blue
+	ColorNeutral = 0xCDD6F4 // Soft white
+)
 
 type Interface interface {
-	SendError(ctx *bot.InteractionContext, err error)
-	SendMessage(ctx *bot.InteractionContext, message Message)
+	Sender(sender SenderFN) error
 }
 
 type Responder struct {
@@ -34,86 +34,323 @@ type Responder struct {
 
 type Params struct {
 	fx.In
+
 	Logger *slog.Logger
 }
 
 func New(params Params) *Responder {
-	responder := Responder{
+	return &Responder{
 		logger: params.Logger,
 	}
-	return &responder
 }
 
-func (responder Responder) SendError(ctx *bot.InteractionContext, err error) {
-	var builder strings.Builder
-	builder.WriteString("```\n")
-	builder.WriteString(err.Error())
-	builder.WriteString("```\n")
+type SenderFN func() (*ResponderData, error)
 
+type ResponderData struct {
+	interaction     *bot.InteractionContext
+	embed           messages.Embed
+	content         string
+	err             error
+	clearComponents bool
+}
+
+func (responder *Responder) Sender(sender SenderFN) error {
+	if sender == nil {
+		return errors.New("responder: sender cannot be nil")
+	}
+
+	data, err := sender()
+	if err != nil {
+		return fmt.Errorf("responder: failed to build response: %w", err)
+	}
+
+	if data == nil {
+		return errors.New("responder: sender returned nil data")
+	}
+
+	sendErr := responder.HandleData(*data)
+
+	if data.err != nil {
+		if sendErr != nil {
+			return fmt.Errorf(
+				"responder: failed to send error response: %w",
+				sendErr,
+			)
+		}
+
+		return data.err
+	}
+
+	if sendErr != nil {
+		return fmt.Errorf("responder: failed to send response: %w", sendErr)
+	}
+
+	return nil
+}
+
+func newSimpleEmbed(title, description string, color int, timestamp bool) messages.Embed {
 	embed := messages.NewEmbedBuilder().
-		SetTitle("𖥻 ׁ ׅ  An exception occurred.... ! ﹒  ◡◡").
-		SetDescription(builder.String()).
-		SetTimestampNow().
-		SetColor(0xfdfd96)
+		SetTitle(title).
+		SetDescription(description).
+		SetColor(color)
 
-	responder.handler(ctx, err, embed.Build(), false)
-}
-
-func (responder Responder) SendMessage(ctx *bot.InteractionContext, message Message) {
-	embed := messages.NewEmbedBuilder()
-	if message.Title != "" {
-		embed.SetTitle(fmt.Sprintf("𖥻 ׁ ׅ  %v ! ﹒  ◡◡", message.Title))
-	}
-	if message.Description != "" {
-		embed.SetDescription(fmt.Sprintf("⋆˚꩜｡ %v", message.Description))
-	}
-	if message.WithColor {
-		embed.SetColor(0xfdfd96)
-	}
-	if message.WithTimestampNow {
+	if timestamp {
 		embed.SetTimestampNow()
 	}
 
-	responder.handler(ctx, nil, embed.Build(), message.ClearComponents)
+	return embed.Build()
 }
 
-func (responder Responder) handler(ctx *bot.InteractionContext, err error, embed messages.Embed, clearComponents bool) {
-	if err != nil {
-		responder.logger.Error(err.Error())
+func WithStatusOk(
+	ctx *bot.InteractionContext,
+	err error,
+) SenderFN {
+	return withStatus(
+		ctx,
+		"Concluído com sucesso!",
+		"Sua solicitação foi processada. Tudo certo!",
+		ColorSuccess,
+		false,
+		err,
+	)
+}
+
+func WithStatusCreated(
+	ctx *bot.InteractionContext,
+	err error,
+) SenderFN {
+	return withStatus(
+		ctx,
+		"Criado com sucesso!",
+		"Prontinho! O recurso foi criado e já está disponível.",
+		ColorSuccess,
+		false,
+		err,
+	)
+}
+
+func WithStatusNoContent(
+	ctx *bot.InteractionContext,
+	err error,
+) SenderFN {
+	return withStatus(
+		ctx,
+		"Tudo certo!",
+		"Sua solicitação foi concluída com sucesso.",
+		ColorNeutral,
+		true,
+		err,
+	)
+}
+
+func WithStatusBadRequest(
+	ctx *bot.InteractionContext,
+	err error,
+) SenderFN {
+	return withStatus(
+		ctx,
+		"Ops! Algo não saiu como esperado",
+		"Confira as informações enviadas e tente novamente. Se precisar, revise os campos e tente mais uma vez.",
+		ColorError,
+		false,
+		err,
+	)
+}
+
+func WithStatusUnauthorized(
+	ctx *bot.InteractionContext,
+	err error,
+) SenderFN {
+	return withStatus(
+		ctx,
+		"Precisamos confirmar sua identidade",
+		"Você precisa estar autenticado para continuar. Faça a autenticação e tente novamente.",
+		ColorError,
+		false,
+		err,
+	)
+}
+
+func WithStatusForbidden(
+	ctx *bot.InteractionContext,
+	err error,
+) SenderFN {
+	return withStatus(
+		ctx,
+		"Acesso não permitido",
+		"Você não tem permissão para realizar esta ação. Se acredita que isso é um engano, entre em contato com a equipe responsável.",
+		ColorError,
+		false,
+		err,
+	)
+}
+
+func WithStatusNotFound(
+	ctx *bot.InteractionContext,
+	err error,
+) SenderFN {
+	return withStatus(
+		ctx,
+		"Não encontramos o que você procura",
+		"O item solicitado não foi encontrado. Confira as informações e tente novamente.",
+		ColorInfo,
+		false,
+		err,
+	)
+}
+
+func WithStatusConflict(
+	ctx *bot.InteractionContext,
+	err error,
+) SenderFN {
+	return withStatus(
+		ctx,
+		"Esta ação não pode ser concluída agora",
+		"Já existe um registro ou uma situação que impede esta operação. Confira os dados e tente novamente.",
+		ColorError,
+		false,
+		err,
+	)
+}
+
+func WithStatusInternalServerError(
+	ctx *bot.InteractionContext,
+	err error,
+) SenderFN {
+	return withStatus(
+		ctx,
+		"Ops! Tivemos um imprevisto",
+		"Não conseguimos concluir sua solicitação neste momento. Tente novamente em instantes. Se o problema continuar, avise nossa equipe.",
+		ColorError,
+		false,
+		err,
+	)
+}
+
+func WithCustomMessage(ctx *bot.InteractionContext, title, message string, cause error) SenderFN {
+	return withStatus(ctx, title, message, ColorNeutral, false, cause)
+}
+
+func withStatus(
+	ctx *bot.InteractionContext,
+	title string,
+	description string,
+	color int,
+	clearComponents bool,
+	cause error,
+) SenderFN {
+	return func() (*ResponderData, error) {
+		if ctx == nil {
+			return nil, errors.New(
+				"responder: interaction context cannot be nil",
+			)
+		}
+
+		if !ctx.IsRepliable() {
+			return nil, errors.New(
+				"responder: interaction is not repliable",
+			)
+		}
+
+		var wrappedErr error
+		if cause != nil {
+			wrappedErr = fmt.Errorf(
+				"responder: status response %q: %w",
+				title,
+				cause,
+			)
+		}
+
+		return &ResponderData{
+			interaction: ctx,
+			embed: newSimpleEmbed(
+				title,
+				description,
+				color,
+				true,
+			),
+			err:             wrappedErr,
+			clearComponents: clearComponents,
+		}, nil
 	}
-	if ctx == nil || !ctx.IsRepliable() {
-		return
+}
+
+func (responder *Responder) HandleData(data ResponderData) error {
+	if data.interaction == nil {
+		return errors.New("responder: interaction context cannot be nil")
 	}
 
+	if !data.interaction.IsRepliable() {
+		return errors.New("responder: interaction is not repliable")
+	}
+
+	ctx := data.interaction
+
 	if ctx.Replied() {
-		_, serr := ctx.FollowupComplex(rest.ExecuteWebhookParams{
-			Embeds: []messages.Embed{embed},
+		_, err := ctx.FollowupComplex(rest.ExecuteWebhookParams{
+			Embeds: []messages.Embed{data.embed},
 			Flags:  messages.FlagEphemeral,
 		})
-		if serr != nil {
-			responder.logger.Error(serr.Error())
+		if err != nil {
+			responder.logger.Error(
+				"failed to send interaction follow-up",
+				slog.String("error", err.Error()),
+			)
+
+			return fmt.Errorf(
+				"responder: failed to send interaction follow-up: %w",
+				err,
+			)
 		}
-		return
+
+		return nil
 	}
 
 	if ctx.Deferred() {
 		params := rest.EditMessageParams{
-			Embeds: &[]messages.Embed{embed},
+			Embeds: &[]messages.Embed{data.embed},
 		}
-		if clearComponents {
+
+		if data.content != "" {
+			params.Content = &data.content
+		}
+
+		if data.clearComponents {
 			emptyComponents := []components.Component{}
 			params.Components = &emptyComponents
 		}
-		_, serr := ctx.EditReplyComplex(params)
-		if serr != nil {
-			responder.logger.Error(serr.Error())
+
+		_, err := ctx.EditReplyComplex(params)
+		if err != nil {
+			responder.logger.Error(
+				"failed to edit interaction response",
+				slog.String("error", err.Error()),
+			)
+
+			return fmt.Errorf(
+				"responder: failed to edit interaction response: %w",
+				err,
+			)
 		}
-		return
+
+		return nil
 	}
 
-	if serr := ctx.ReplyEphemeralComplex(&interactions.InteractionCallbackData{
-		Embeds: []messages.Embed{embed},
-	}); serr != nil {
-		responder.logger.Error(serr.Error())
+	if err := ctx.ReplyEphemeralComplex(
+		&interactions.InteractionCallbackData{
+			Embeds: []messages.Embed{data.embed},
+		},
+	); err != nil {
+		responder.logger.Error(
+			"failed to send interaction response",
+			slog.String("error", err.Error()),
+		)
+
+		return fmt.Errorf(
+			"responder: failed to send interaction response: %w",
+			err,
+		)
 	}
+
+	return nil
 }

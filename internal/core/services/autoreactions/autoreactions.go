@@ -1,19 +1,18 @@
 package autoreactions
 
 import (
-	"database/sql"
-	"errors"
-	"fmt"
 	"log/slog"
 
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/channels"
 	"github.com/discord-go/discord.go/components"
 	"github.com/google/uuid"
+	"github.com/rickferrdev/elysia-botbot/internal/core"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/discord"
+	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/autoreactions"
 	"go.uber.org/fx"
 )
@@ -63,10 +62,10 @@ func (service *Service) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 
 	data, err := service.database.GetOne(ctx.Context(), ctx.GuildID.String(), ctx.ChannelID().String())
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
 			return
 		}
-		service.logger.Error(err.Error())
+		service.logger.Error("failed to get autoreaction", slog.String("error", err.Error()))
 		return
 	}
 
@@ -130,34 +129,42 @@ func (service *Service) AutoReactionsSetup(ctx *bot.InteractionContext) {
 		Build(),
 	)
 	if err != nil {
-		service.responder.SendError(interaction, err)
+		service.responder.Sender(
+			responder.WithStatusInternalServerError(ctx, err),
+		)
 		return
 	}
 
 	switch interaction.Values()[0] {
 	case "create":
 		if err := service.Create(interaction); err != nil {
-			service.responder.SendError(interaction, err)
-			return
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	case "read":
 		if err := service.Obtain(interaction); err != nil {
-			service.responder.SendError(interaction, err)
-			return
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	case "update":
 		if err := service.Update(interaction); err != nil {
-			service.responder.SendError(interaction, err)
-			return
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
 		return
 	case "delete":
 		if err := service.Delete(interaction); err != nil {
-			service.responder.SendError(interaction, err)
-			return
+			service.responder.Sender(
+				responder.WithStatusInternalServerError(ctx, err),
+			)
 		}
+		return
+	default:
 		return
 	}
 }
@@ -234,20 +241,16 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 		Emoji:     emoji,
 	}
 
-	res, err := service.database.CreateOne(interaction.Context(), autoreactions)
+	_, err = service.database.CreateOne(interaction.Context(), autoreactions)
 	if err != nil {
+		if core.IsCode(err, repoerrors.CodeSqlConflict) {
+			service.responder.Sender(responder.WithStatusConflict(interaction, err))
+			return nil
+		}
 		return err
 	}
 
-	service.responder.SendMessage(interaction, responder.Message{
-		Title:            "Tudo criado",
-		Description:      fmt.Sprintf("**Identificador:** %d\n", res.ID),
-		WithTimestampNow: true,
-		WithColor:        true,
-		ClearComponents:  true,
-	})
-
-	return nil
+	return service.responder.Sender(responder.WithStatusCreated(interaction, nil))
 }
 
 func (service *Service) Obtain(ctx *bot.InteractionContext) error {
@@ -269,19 +272,16 @@ func (service *Service) Obtain(ctx *bot.InteractionContext) error {
 
 	channelID := interaction.Values()[0]
 
-	data, err := service.database.GetOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
+	_, err = service.database.GetOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
 	if err != nil {
+		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
+			service.responder.Sender(responder.WithStatusNotFound(interaction, err))
+			return nil
+		}
 		return err
 	}
 
-	service.responder.SendMessage(interaction, responder.Message{
-		Title:            fmt.Sprintf("**Identificador:** %d", data.ID),
-		WithTimestampNow: true,
-		WithColor:        true,
-		ClearComponents:  true,
-	})
-
-	return nil
+	return service.responder.Sender(responder.WithStatusOk(interaction, nil))
 }
 
 func (service *Service) Update(ctx *bot.InteractionContext) error {
@@ -301,7 +301,6 @@ func (service *Service) Update(ctx *bot.InteractionContext) error {
 	}
 
 	channelID := interaction.Values()[0]
-
 	menuID, inputID := uuid.NewString(), uuid.NewString()
 	interaction, err = service.flow.AwaitSimpleTextModal(interaction, components.NewTextInputBuilder().
 		SetCustomID(inputID).
@@ -322,19 +321,12 @@ func (service *Service) Update(ctx *bot.InteractionContext) error {
 	}
 
 	emoji := interaction.ModalValue(inputID)
-	data, err := service.database.UpdateOne(ctx.Context(), interaction.Guild.ID.String(), channelID, emoji)
+	_, err = service.database.UpdateOne(ctx.Context(), interaction.Guild.ID.String(), channelID, emoji)
 	if err != nil {
 		return err
 	}
 
-	service.responder.SendMessage(interaction, responder.Message{
-		Title:            fmt.Sprintf("**Identificador:** %d", data.ID),
-		WithTimestampNow: true,
-		WithColor:        true,
-		ClearComponents:  true,
-	})
-
-	return nil
+	return service.responder.Sender(responder.WithStatusOk(interaction, nil))
 }
 
 func (service *Service) Delete(ctx *bot.InteractionContext) error {
@@ -358,17 +350,9 @@ func (service *Service) Delete(ctx *bot.InteractionContext) error {
 	}
 
 	channelID := interaction.Values()[0]
-	data, err := service.database.DeleteOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
+	_, err = service.database.DeleteOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
 	if err != nil {
 		return err
 	}
-
-	service.responder.SendMessage(interaction, responder.Message{
-		Title:            fmt.Sprintf("**Identificador:** %d", data.ID),
-		WithTimestampNow: true,
-		WithColor:        true,
-		ClearComponents:  true,
-	})
-
-	return nil
+	return service.responder.Sender(responder.WithStatusOk(interaction, nil))
 }
