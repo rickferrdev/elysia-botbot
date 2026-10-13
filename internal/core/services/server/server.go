@@ -114,7 +114,7 @@ func (service *Service) Obtain(ctx *bot.InteractionContext) error {
 		return err
 	}
 	if data.Config == nil {
-		service.responder.Sender(responder.WithCustomMessage(ctx, "config does not exist", "", nil))
+		service.responder.Sender(responder.WithCustomMessage(ctx, "config does not exist", "", nil, true))
 		return nil
 	}
 

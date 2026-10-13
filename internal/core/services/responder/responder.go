@@ -110,7 +110,7 @@ func WithStatusOk(
 		"Concluído com sucesso!",
 		"Sua solicitação foi processada. Tudo certo!",
 		ColorSuccess,
-		false,
+		true,
 		err,
 	)
 }
@@ -124,7 +124,7 @@ func WithStatusCreated(
 		"Criado com sucesso!",
 		"Prontinho! O recurso foi criado e já está disponível.",
 		ColorSuccess,
-		false,
+		true,
 		err,
 	)
 }
@@ -152,7 +152,7 @@ func WithStatusBadRequest(
 		"Ops! Algo não saiu como esperado",
 		"Confira as informações enviadas e tente novamente. Se precisar, revise os campos e tente mais uma vez.",
 		ColorError,
-		false,
+		true,
 		err,
 	)
 }
@@ -166,7 +166,7 @@ func WithStatusUnauthorized(
 		"Precisamos confirmar sua identidade",
 		"Você precisa estar autenticado para continuar. Faça a autenticação e tente novamente.",
 		ColorError,
-		false,
+		true,
 		err,
 	)
 }
@@ -180,7 +180,7 @@ func WithStatusForbidden(
 		"Acesso não permitido",
 		"Você não tem permissão para realizar esta ação. Se acredita que isso é um engano, entre em contato com a equipe responsável.",
 		ColorError,
-		false,
+		true,
 		err,
 	)
 }
@@ -194,7 +194,7 @@ func WithStatusNotFound(
 		"Não encontramos o que você procura",
 		"O item solicitado não foi encontrado. Confira as informações e tente novamente.",
 		ColorInfo,
-		false,
+		true,
 		err,
 	)
 }
@@ -208,7 +208,7 @@ func WithStatusConflict(
 		"Esta ação não pode ser concluída agora",
 		"Já existe um registro ou uma situação que impede esta operação. Confira os dados e tente novamente.",
 		ColorError,
-		false,
+		true,
 		err,
 	)
 }
@@ -222,13 +222,13 @@ func WithStatusInternalServerError(
 		"Ops! Tivemos um imprevisto",
 		"Não conseguimos concluir sua solicitação neste momento. Tente novamente em instantes. Se o problema continuar, avise nossa equipe.",
 		ColorError,
-		false,
+		true,
 		err,
 	)
 }
 
-func WithCustomMessage(ctx *bot.InteractionContext, title, message string, cause error) SenderFN {
-	return withStatus(ctx, title, message, ColorNeutral, false, cause)
+func WithCustomMessage(ctx *bot.InteractionContext, title, message string, cause error, clearComponents bool) SenderFN {
+	return withStatus(ctx, title, message, ColorNeutral, clearComponents, cause)
 }
 
 func withStatus(
