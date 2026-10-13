@@ -152,7 +152,7 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 		},
 	})
 	if err != nil {
-		if core.IsCode(err, core.CodeConflict) {
+		if core.IsCode(err, repoerrors.CodeSqlConflict) {
 			service.responder.Sender(responder.WithStatusConflict(interaction, err))
 			return nil
 		}

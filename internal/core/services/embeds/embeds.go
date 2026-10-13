@@ -175,27 +175,18 @@ func (service *Service) Create(ctx *bot.InteractionContext) error {
 	switch {
 	case len(message.Attachments) > 0:
 		if err := service.HandlerAttachments(message); err != nil {
-			if core.IsCode(err, core.CodeBadRequest) {
-				service.responder.Sender(responder.WithStatusBadRequest(ctx, err))
-				return nil
-			}
 			return err
 		}
 	case len(message.Content) > 0:
 		if err := service.HandlerMessageContent(message, 0); err != nil {
-			if core.IsCode(err, core.CodeBadRequest) {
-				service.responder.Sender(responder.WithStatusBadRequest(ctx, err))
-				return nil
-			}
 			return err
 		}
 	default:
-		return core.NewAppErrorWithStatus(
-			"message must contain JSON content or an attachment",
-			core.CodeBadRequest,
-			core.StatusBadRequest,
-			nil,
-		)
+		service.responder.Sender(responder.WithStatusBadRequest(
+			ctx,
+			errors.New("message must contain JSON content or an attachment"),
+		))
+		return nil
 	}
 
 	return service.responder.Sender(responder.WithStatusCreated(ctx, nil))
@@ -366,27 +357,18 @@ func (service *Service) Update(ctx *bot.InteractionContext) error {
 	switch {
 	case len(message.Attachments) > 0:
 		if err := service.HandlerAttachments(message); err != nil {
-			if core.IsCode(err, core.CodeBadRequest) {
-				service.responder.Sender(responder.WithStatusBadRequest(interaction, err))
-				return nil
-			}
 			return err
 		}
 	case len(message.Content) > 0:
 		if err := service.HandlerMessageContent(message, id); err != nil {
-			if core.IsCode(err, core.CodeBadRequest) {
-				service.responder.Sender(responder.WithStatusBadRequest(interaction, err))
-				return nil
-			}
 			return err
 		}
 	default:
-		return core.NewAppErrorWithStatus(
-			"message must contain JSON content or an attachment",
-			core.CodeBadRequest,
-			core.StatusBadRequest,
-			nil,
-		)
+		service.responder.Sender(responder.WithStatusBadRequest(
+			ctx,
+			errors.New("message must contain JSON content or an attachment"),
+		))
+		return nil
 	}
 
 	return service.responder.Sender(responder.WithStatusOk(interaction, nil))
@@ -431,22 +413,12 @@ func (service *Service) HandlerAttachments(message *bot.MessageContext) error {
 func (service *Service) HandlerMessageContent(message *bot.MessageContext, id int) error {
 	formatted := strings.TrimSpace(message.Content)
 	if !json.Valid([]byte(formatted)) {
-		return core.NewAppErrorWithStatus(
-			"invalid JSON",
-			core.CodeBadRequest,
-			core.StatusBadRequest,
-			errors.New("invalid json"),
-		)
+		return errors.New("invalid json")
 	}
 
 	var embedContent domain.EmbedContentDecode
 	if err := json.Unmarshal([]byte(formatted), &embedContent); err != nil {
-		return core.NewAppErrorWithStatus(
-			"invalid JSON",
-			core.CodeBadRequest,
-			core.StatusBadRequest,
-			err,
-		)
+		return errors.New("invalid json")
 	}
 	bytes, err := json.Marshal(embedContent)
 	if err != nil {

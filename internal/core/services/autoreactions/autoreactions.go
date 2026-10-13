@@ -106,7 +106,7 @@ func (service *Service) AutoReactionsSetup(ctx *bot.InteractionContext) {
 
 		components.NewSelectOptionBuilder().
 			SetLabel("Obter").
-			SetValue("read").
+			SetValue("obtain").
 			SetDescription("Consultar mensagens e seus anexos").
 			Build(),
 
@@ -143,7 +143,7 @@ func (service *Service) AutoReactionsSetup(ctx *bot.InteractionContext) {
 			)
 		}
 		return
-	case "read":
+	case "obtain":
 		if err := service.Obtain(interaction); err != nil {
 			service.responder.Sender(
 				responder.WithStatusInternalServerError(ctx, err),
