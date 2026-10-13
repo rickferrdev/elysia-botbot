@@ -7,6 +7,7 @@ import (
 
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/sqlite"
+	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"github.com/uptrace/bun"
 	"go.uber.org/fx"
 )
@@ -43,7 +44,7 @@ func New(params Params) (*Database, error) {
 			IfNotExists().
 			Exec(context.Background())
 		if err != nil {
-			return nil, err
+			return nil, repoerrors.TranslateSqliteError(err)
 		}
 	}
 
@@ -58,7 +59,7 @@ func (database *Database) CreateServerWithConfig(
 		return errors.New("server config is required")
 	}
 
-	return database.sqlite.DB.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+	err := database.sqlite.DB.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 		serverSchema := NewSchemaServer(&server)
 		if _, err := tx.NewInsert().Model(serverSchema).On("CONFLICT (guild_id) DO NOTHING").Exec(ctx); err != nil {
 			return err
@@ -70,6 +71,10 @@ func (database *Database) CreateServerWithConfig(
 		}
 		return nil
 	})
+	if err != nil {
+		return repoerrors.TranslateSqliteError(err)
+	}
+	return nil
 }
 
 func (database *Database) GetServerWithConfig(ctx context.Context, guildID string) (*domain.Server, error) {
@@ -81,7 +86,7 @@ func (database *Database) GetServerWithConfig(ctx context.Context, guildID strin
 		Where("server.guild_id = ?", guildID).
 		Scan(ctx)
 	if err != nil {
-		return nil, err
+		return nil, repoerrors.TranslateSqliteError(err)
 	}
 
 	result := &domain.Server{

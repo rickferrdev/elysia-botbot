@@ -5,6 +5,7 @@ import (
 
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/sqlite"
+	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"go.uber.org/fx"
 )
 
@@ -23,7 +24,7 @@ type (
 
 type Interface interface {
 	CreateOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error)
-	UpsertOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error) 
+	UpsertOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error)
 	DeleteOne(ctx context.Context, id int) (*domain.Embed, error)
 	GetOne(ctx context.Context, id int) (*domain.Embed, error)
 	GetAll(ctx context.Context, guildID string) ([]domain.Embed, error)
@@ -44,7 +45,7 @@ func New(params Params) (*Database, error) {
 			IfNotExists().
 			Exec(context.Background())
 		if err != nil {
-			return nil, err
+			return nil, repoerrors.TranslateSqliteError(err)
 		}
 	}
 
@@ -56,7 +57,7 @@ func (database *Database) CreateOne(ctx context.Context, embed domain.Embed) (*d
 
 	_, err := database.sqlite.DB.NewInsert().Model(schema).Returning("*").Exec(ctx)
 	if err != nil {
-		return nil, err
+		return nil, repoerrors.TranslateSqliteError(err)
 	}
 
 	return schema.NewDomainEmbed(), nil
@@ -67,7 +68,7 @@ func (database *Database) UpsertOne(ctx context.Context, embed domain.Embed) (*d
 
 	_, err := database.sqlite.DB.NewInsert().Model(schema).On("CONFLICT (id, guild_id) DO UPDATE").Set("content = ?", embed.Content).Returning("*").Exec(ctx)
 	if err != nil {
-		return nil, err
+		return nil, repoerrors.TranslateSqliteError(err)
 	}
 
 	return schema.NewDomainEmbed(), nil
@@ -75,9 +76,9 @@ func (database *Database) UpsertOne(ctx context.Context, embed domain.Embed) (*d
 
 func (database *Database) DeleteOne(ctx context.Context, id int) (*domain.Embed, error) {
 	var schema SchemaEmbed
-	_, err := database.sqlite.DB.NewDelete().Model(&schema).Where("id = ?", id).Returning("*").Exec(ctx)
+	err := database.sqlite.DB.NewDelete().Model(&schema).Where("id = ?", id).Returning("*").Scan(ctx)
 	if err != nil {
-		return nil, err
+		return nil, repoerrors.TranslateSqliteError(err)
 	}
 	return schema.NewDomainEmbed(), nil
 }
@@ -86,7 +87,7 @@ func (database *Database) GetOne(ctx context.Context, id int) (*domain.Embed, er
 	var schema SchemaEmbed
 	err := database.sqlite.DB.NewSelect().Model(&schema).Where("id = ?", id).Scan(ctx)
 	if err != nil {
-		return nil, err
+		return nil, repoerrors.TranslateSqliteError(err)
 	}
 	return schema.NewDomainEmbed(), nil
 }
@@ -96,7 +97,7 @@ func (database *Database) GetAll(ctx context.Context, guildID string) ([]domain.
 
 	err := database.sqlite.DB.NewSelect().Model(&schemas).Where("guild_id = ?", guildID).Scan(ctx)
 	if err != nil {
-		return []domain.Embed{}, err
+		return nil, repoerrors.TranslateSqliteError(err)
 	}
 
 	domain := make([]domain.Embed, 0, len(schemas))
