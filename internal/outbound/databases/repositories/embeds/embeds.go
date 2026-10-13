@@ -23,6 +23,7 @@ type (
 
 type Interface interface {
 	CreateOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error)
+	UpsertOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error) 
 	DeleteOne(ctx context.Context, id int) (*domain.Embed, error)
 	GetOne(ctx context.Context, id int) (*domain.Embed, error)
 	GetAll(ctx context.Context, guildID string) ([]domain.Embed, error)
@@ -54,6 +55,17 @@ func (database *Database) CreateOne(ctx context.Context, embed domain.Embed) (*d
 	schema := NewSchemaEmbeds(embed)
 
 	_, err := database.sqlite.DB.NewInsert().Model(schema).Returning("*").Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.NewDomainEmbed(), nil
+}
+
+func (database *Database) UpsertOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error) {
+	schema := NewSchemaEmbeds(embed)
+
+	_, err := database.sqlite.DB.NewInsert().Model(schema).On("CONFLICT (id, guild_id) DO UPDATE").Set("content = ?", embed.Content).Returning("*").Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
