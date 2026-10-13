@@ -2,9 +2,9 @@
 
 ## Funcionalidades
 
-- [ ] Implementar a leitura e validação de anexos JSON em `HandlerAttachments`, em `internal/core/services/embeds/embeds.go`. O método retorna explicitamente que o tratamento não está implementado, embora os fluxos de criação e atualização aceitem anexos.
-- [ ] Exibir incorporações salvas sem texto em `Obtain`, em `internal/core/services/embeds/embeds.go`. A resposta atual só edita a interação quando `decode.Content` não está vazio; incorporações contendo apenas `decode.Embeds` não são exibidas.
+- [ ] Implementar o tratamento de anexos JSON em `HandlerAttachments`, em `internal/core/services/embeds/embeds.go`. Criação e atualização aceitam anexos, mas o método ainda retorna que a funcionalidade não está implementada.
+- [ ] Corrigir a consulta de incorporações em `Obtain`, em `internal/core/services/embeds/embeds.go`, para exibir também registros que tenham apenas `Embeds` e nenhum `Content`. Atualmente, esse caso responde sucesso sem exibir a incorporação.
 
 ## Testes
 
-- [ ] Criar testes automatizados para os serviços de embeds e autoreactions, cobrindo os fluxos de sucesso e os erros de persistência. O projeto não possui arquivos `*_test.go` no momento.
+- [ ] Adicionar testes automatizados para o mapeamento de erros SQLite em `internal/outbound/databases/repoerrors` e para os fluxos de sucesso e erro dos serviços de embeds e autoreactions. O projeto ainda não possui arquivos `*_test.go`.
