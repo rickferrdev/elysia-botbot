@@ -2,10 +2,13 @@ package server
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/components"
+	"github.com/discord-go/discord.go/messages"
 	"github.com/discord-go/discord.go/permissions"
+	"github.com/discord-go/discord.go/users"
 	"github.com/google/uuid"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
@@ -26,18 +29,18 @@ type Args struct {
 }
 
 type Command struct {
-	interactionFlow  interactionflow.Interface
-	discordClient    *discord.DiscordClient
-	serverService    server.Interface
-	responder responder.Interface
+	interactionFlow interactionflow.Interface
+	discordClient   *discord.DiscordClient
+	serverService   server.Interface
+	responder       responder.Interface
 }
 
 func New(args Args) *Command {
 	server := Command{
-		interactionFlow:  args.InteractionFlow,
-		responder: args.ResponderService,
-		discordClient:    args.DiscordClient,
-		serverService:    args.ServerService,
+		interactionFlow: args.InteractionFlow,
+		responder:       args.ResponderService,
+		discordClient:   args.DiscordClient,
+		serverService:   args.ServerService,
 	}
 
 	args.DiscordClient.Router.Command(
@@ -78,7 +81,7 @@ func (command *Command) ServerSetup(ctx *bot.InteractionContext, router *bot.Rou
 				Build(),
 		}, components.NewStringSelectMenuBuilder().
 			SetCustomID(menuID).
-			SetPlaceholder("Selecione uma opção").
+			SetPlaceholder("Selecione uma opção.").
 			SetMinValues(1).
 			SetMaxValues(1).
 			Build(),
@@ -116,11 +119,27 @@ func (command *Command) Obtain(ctx *bot.InteractionContext) {
 		return
 	}
 	if data.Config == nil {
-		command.responder.Sender(responder.WithCustomMessage(ctx, "config does not exist", "", nil, true))
+		command.responder.Sender(responder.WithSimpleCustomMessage(ctx, "Solicite a configuração do servidor antes.", "", nil))
 		return
 	}
 
-	command.responder.Sender(responder.WithStatusOk(ctx, nil))
+	embeder := messages.NewEmbedBuilder().
+		SetTitle("⋆. 𐙚˚࿔ Configurações do Servidor 𝜗𝜚˚⋆").
+		SetThumbnail(ctx.Bot.User().
+			DisplayAvatarURL(users.AvatarURLOptions{})).
+		SetColor(0xB4E4D6).
+		SetTimestampNow()
+
+	fields := map[string]string{
+		"ִ ࣪𖤐 Identificador do Servidor:": fmt.Sprintf("**%v**", data.GuildID),
+		"ִ ࣪𖤐 Prefixo do Elysia-BotBot:":  fmt.Sprintf("`%v`", data.Config.Prefix),
+	}
+
+	for index, value := range fields {
+		embeder.AddField(index, value, false)
+	}
+
+	command.responder.Sender(responder.WithCustomEmbed(ctx, embeder.Build(), nil))
 }
 
 func (command *Command) Create(ctx *bot.InteractionContext) {
@@ -133,7 +152,7 @@ func (command *Command) Create(ctx *bot.InteractionContext) {
 			SetStyle(components.TextInputStyleShort).
 			SetPlaceholder("e!").
 			SetRequired(true).
-			SetMaxLength(1).
+			SetMaxLength(5).
 			Build(),
 		components.NewModalBuilder().SetCustomID(modalID).SetTitle("Adicionar/Atualizar as configurações").Build(),
 	)
@@ -163,5 +182,20 @@ func (command *Command) Create(ctx *bot.InteractionContext) {
 		return
 	}
 
-	command.responder.Sender(responder.WithStatusCreated(interaction, nil))
+	embeder := messages.NewEmbedBuilder().
+		SetTitle("⋆. 𐙚˚࿔ Configurações do Servidor 𝜗𝜚˚⋆").
+		SetThumbnail(ctx.Bot.User().
+			DisplayAvatarURL(users.AvatarURLOptions{})).
+		SetColor(0xB4E4D6).
+		SetTimestampNow()
+
+	fields := map[string]string{
+		"ִ ࣪𖤐 Prefixo do Elysia-BotBot:": fmt.Sprintf("`%v`", interaction.ModalValue(inputID)),
+	}
+
+	for index, value := range fields {
+		embeder.AddField(index, value, false)
+	}
+
+	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
 }
