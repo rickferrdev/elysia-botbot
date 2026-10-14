@@ -218,7 +218,7 @@ func WithStatusInternalServerError(
 	)
 }
 
-func WithCustomMessage(ctx *bot.InteractionContext, title, message string, cause error, clearComponents bool) SenderFN {
+func WithSimpleCustomMessage(ctx *bot.InteractionContext, title, message string, cause error) SenderFN {
 	return withStatus(ctx, title, message, ColorNeutral, cause)
 }
 
