@@ -110,7 +110,6 @@ func WithStatusOk(
 		"Concluído com sucesso!",
 		"Sua solicitação foi processada. Tudo certo!",
 		ColorSuccess,
-		true,
 		err,
 	)
 }
@@ -124,7 +123,6 @@ func WithStatusCreated(
 		"Criado com sucesso!",
 		"Prontinho! O recurso foi criado e já está disponível.",
 		ColorSuccess,
-		true,
 		err,
 	)
 }
@@ -138,7 +136,6 @@ func WithStatusNoContent(
 		"Tudo certo!",
 		"Sua solicitação foi concluída com sucesso.",
 		ColorNeutral,
-		true,
 		err,
 	)
 }
@@ -152,7 +149,6 @@ func WithStatusBadRequest(
 		"Ops! Algo não saiu como esperado",
 		"Confira as informações enviadas e tente novamente. Se precisar, revise os campos e tente mais uma vez.",
 		ColorError,
-		true,
 		err,
 	)
 }
@@ -166,7 +162,6 @@ func WithStatusUnauthorized(
 		"Precisamos confirmar sua identidade",
 		"Você precisa estar autenticado para continuar. Faça a autenticação e tente novamente.",
 		ColorError,
-		true,
 		err,
 	)
 }
@@ -180,7 +175,6 @@ func WithStatusForbidden(
 		"Acesso não permitido",
 		"Você não tem permissão para realizar esta ação. Se acredita que isso é um engano, entre em contato com a equipe responsável.",
 		ColorError,
-		true,
 		err,
 	)
 }
@@ -194,7 +188,6 @@ func WithStatusNotFound(
 		"Não encontramos o que você procura",
 		"O item solicitado não foi encontrado. Confira as informações e tente novamente.",
 		ColorInfo,
-		true,
 		err,
 	)
 }
@@ -208,7 +201,6 @@ func WithStatusConflict(
 		"Esta ação não pode ser concluída agora",
 		"Já existe um registro ou uma situação que impede esta operação. Confira os dados e tente novamente.",
 		ColorError,
-		true,
 		err,
 	)
 }
@@ -222,13 +214,16 @@ func WithStatusInternalServerError(
 		"Ops! Tivemos um imprevisto",
 		"Não conseguimos concluir sua solicitação neste momento. Tente novamente em instantes. Se o problema continuar, avise nossa equipe.",
 		ColorError,
-		true,
 		err,
 	)
 }
 
 func WithCustomMessage(ctx *bot.InteractionContext, title, message string, cause error, clearComponents bool) SenderFN {
-	return withStatus(ctx, title, message, ColorNeutral, clearComponents, cause)
+	return withStatus(ctx, title, message, ColorNeutral, cause)
+}
+
+func WithCustomEmbed(ctx *bot.InteractionContext, embed messages.Embed, cause error) SenderFN {
+	return withEmbed(ctx, embed, cause)
 }
 
 func withStatus(
@@ -236,7 +231,6 @@ func withStatus(
 	title string,
 	description string,
 	color int,
-	clearComponents bool,
 	cause error,
 ) SenderFN {
 	return func() (*ResponderData, error) {
@@ -252,9 +246,9 @@ func withStatus(
 			)
 		}
 
-		var wrappedErr error
+		var err error
 		if cause != nil {
-			wrappedErr = fmt.Errorf(
+			err = fmt.Errorf(
 				"responder: status response %q: %w",
 				title,
 				cause,
@@ -269,13 +263,46 @@ func withStatus(
 				color,
 				true,
 			),
-			err:             wrappedErr,
-			clearComponents: clearComponents,
+			err: err,
+		}, nil
+	}
+}
+
+func withEmbed(ctx *bot.InteractionContext, embed messages.Embed, cause error) SenderFN {
+	return func() (*ResponderData, error) {
+		if ctx == nil {
+			return nil, errors.New(
+				"responder: interaction context cannot be nil",
+			)
+		}
+
+		if !ctx.IsRepliable() {
+			return nil, errors.New(
+				"responder: interaction is not repliable",
+			)
+		}
+
+		var err error
+		if cause != nil {
+			err = fmt.Errorf(
+				"responder: status response %q: %w",
+				embed.Title,
+				cause,
+			)
+		}
+
+		return &ResponderData{
+			interaction: ctx,
+			embed:       embed,
+			err:         err,
 		}, nil
 	}
 }
 
 func (responder *Responder) HandleData(data ResponderData) error {
+	if data.err != nil {
+		responder.logger.Error(data.err.Error())
+	}
 	if data.interaction == nil {
 		return errors.New("responder: interaction context cannot be nil")
 	}
@@ -287,9 +314,9 @@ func (responder *Responder) HandleData(data ResponderData) error {
 	ctx := data.interaction
 
 	if ctx.Replied() {
-		_, err := ctx.FollowupComplex(rest.ExecuteWebhookParams{
-			Embeds: []messages.Embed{data.embed},
-			Flags:  messages.FlagEphemeral,
+		_, err := ctx.EditReplyComplex(rest.EditMessageParams{
+			Embeds:     &[]messages.Embed{data.embed},
+			Components: &[]components.Component{},
 		})
 		if err != nil {
 			responder.logger.Error(
@@ -308,16 +335,12 @@ func (responder *Responder) HandleData(data ResponderData) error {
 
 	if ctx.Deferred() {
 		params := rest.EditMessageParams{
-			Embeds: &[]messages.Embed{data.embed},
+			Embeds:     &[]messages.Embed{data.embed},
+			Components: &[]components.Component{},
 		}
 
 		if data.content != "" {
 			params.Content = &data.content
-		}
-
-		if data.clearComponents {
-			emptyComponents := []components.Component{}
-			params.Components = &emptyComponents
 		}
 
 		_, err := ctx.EditReplyComplex(params)
@@ -338,7 +361,8 @@ func (responder *Responder) HandleData(data ResponderData) error {
 
 	if err := ctx.ReplyEphemeralComplex(
 		&interactions.InteractionCallbackData{
-			Embeds: []messages.Embed{data.embed},
+			Embeds:     []messages.Embed{data.embed},
+			Components: []components.Component{},
 		},
 	); err != nil {
 		responder.logger.Error(

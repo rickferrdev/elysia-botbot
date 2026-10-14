@@ -66,7 +66,7 @@ func (database *Database) CreateOne(ctx context.Context, embed domain.Embed) (*d
 func (database *Database) UpsertOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error) {
 	schema := NewSchemaEmbeds(embed)
 
-	_, err := database.sqlite.DB.NewInsert().Model(schema).On("CONFLICT (id, guild_id) DO UPDATE").Set("content = ?", embed.Content).Returning("*").Exec(ctx)
+	_, err := database.sqlite.DB.NewInsert().Model(schema).On("CONFLICT (id) DO UPDATE").Set("content = ?", embed.Content).Returning("*").Exec(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}

@@ -2,7 +2,7 @@
 
 ## Funcionalidades
 
-- [ ] Implementar o tratamento de anexos JSON em `HandlerAttachments`, em `internal/core/services/embeds/embeds.go`. Criação e atualização aceitam anexos, mas o método ainda retorna que a funcionalidade não está implementada.
+- [X] Implementar o tratamento de anexos JSON em `HandlerAttachments`, em `internal/core/services/embeds/embeds.go`. Criação e atualização aceitam anexos, mas o método ainda retorna que a funcionalidade não está implementada.
 - [ ] Corrigir a consulta de incorporações em `Obtain`, em `internal/core/services/embeds/embeds.go`, para exibir também registros que tenham apenas `Embeds` e nenhum `Content`. Atualmente, esse caso responde sucesso sem exibir a incorporação.
 
 ## Testes
