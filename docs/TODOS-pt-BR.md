@@ -1,9 +1,19 @@
 # Pendências
 
-## Funcionalidades
+## Funcionalidades e Melhorias
 
-- [X] Implementar o tratamento de anexos JSON em `HandlerAttachments`, em `internal/core/services/embeds/embeds.go`. Criação e atualização aceitam anexos, mas o método ainda retorna que a funcionalidade não está implementada.
-- [X] Corrigir a consulta de incorporações em `Obtain`, em `internal/inbound/interactions/commands/embeds/embeds.go`, para exibir também registros que tenham apenas `Embeds` e nenhum `Content`. Atualmente, esse caso responde sucesso sem exibir a incorporação.
+### Concluídas
+- [X] Implementar o tratamento de anexos JSON em `HandlerAttachments`, em `internal/core/services/embeds/embeds.go`.
+- [X] Corrigir a consulta de incorporações em `Obtain`, em `internal/inbound/interactions/commands/embeds/embeds.go`, para exibir também registros que tenham apenas `Embeds` e nenhum `Content`.
+- [X] Padronizar comandos de inbound (`embeds`, `autoreactions`, `server`) com mensagens claras e embeds estéticos finais (`⋆. 𐙚˚࿔ ... 𝜗𝜚˚⋆`).
+- [X] Revisar ortografia, pontuação de placeholders e concordância nominal de gênero nas mensagens e status de resposta dos comandos em inbound.
+- [X] **Exibição do ID na criação de incorporações:** Alterar `HandlerMessageContent` e `HandlerAttachments` em `internal/core/services/embeds/embeds.go` para retornar `(*domain.Embed, error)` em vez de apenas `error`, permitindo exibir o `ID` gerado na resposta final do comando para o usuário.
+- [X] **Diferenciação entre criação e atualização de embeds:** No repositório/serviço de embeds, utilizar `CreateOne` quando `id == 0` e `UpsertOne` quando `id > 0`, garantindo a correta geração de chave autoincrement no SQLite.
+- [X] **Listagem de incorporações (`GetAll`):** Expor a consulta de todas as incorporações de um servidor no serviço de embeds e adicionar a opção correspondente no menu de seleção de `/embeds`.
+- [X] **Listagem de autorreações (`GetAll`):** Expor a consulta de todas as autorreações de um servidor no serviço de autorreações e adicionar a opção correspondente no menu de seleção de `/autoreactions`.
+
+### Pendentes
+- [ ] **Cache em memória para autorreações:** Implementar cache local das autorreações ativas para reduzir a frequência de consultas ao banco SQLite no evento `AutoReactionsMessageCreate`.
 
 ## Testes
 
