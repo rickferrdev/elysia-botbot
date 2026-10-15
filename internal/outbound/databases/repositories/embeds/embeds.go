@@ -27,7 +27,7 @@ type Interface interface {
 	UpsertOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error)
 	DeleteOne(ctx context.Context, id int) (*domain.Embed, error)
 	GetOne(ctx context.Context, id int) (*domain.Embed, error)
-	GetAll(ctx context.Context, guildID string) ([]domain.Embed, error)
+	GetAll(ctx context.Context, guildID, authorID string) ([]domain.Embed, error)
 }
 
 func New(params Params) (*Database, error) {
@@ -92,10 +92,10 @@ func (database *Database) GetOne(ctx context.Context, id int) (*domain.Embed, er
 	return schema.NewDomainEmbed(), nil
 }
 
-func (database *Database) GetAll(ctx context.Context, guildID string) ([]domain.Embed, error) {
+func (database *Database) GetAll(ctx context.Context, guildID string, authorID string) ([]domain.Embed, error) {
 	var schemas []SchemaEmbed
 
-	err := database.sqlite.DB.NewSelect().Model(&schemas).Where("guild_id = ?", guildID).Scan(ctx)
+	err := database.sqlite.DB.NewSelect().Model(&schemas).Where("guild_id = ? && author_id = ?", guildID, authorID).Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
