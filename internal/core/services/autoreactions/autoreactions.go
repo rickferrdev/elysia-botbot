@@ -39,6 +39,7 @@ type (
 type Interface interface {
 	CreateOne(ctx context.Context, autoreaction domain.AutoReactions) (*domain.AutoReactions, error)
 	ObtainOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error)
+	ObtainAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error)
 	UpdateOne(ctx context.Context, guildID, channelID, emoji string) (*domain.AutoReactions, error)
 	DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error)
 }
@@ -62,7 +63,6 @@ func (service *Service) CreateOne(ctx context.Context, autoreaction domain.AutoR
 	}
 	return result, err
 }
-
 func (service *Service) ObtainOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
 	result, err := service.database.GetOne(ctx, guildID, channelID)
 	if core.IsCode(err, repoerrors.CodeSqlNoRows) {
@@ -70,7 +70,6 @@ func (service *Service) ObtainOne(ctx context.Context, guildID, channelID string
 	}
 	return result, err
 }
-
 func (service *Service) UpdateOne(ctx context.Context, guildID, channelID, emoji string) (*domain.AutoReactions, error) {
 	result, err := service.database.UpdateOne(ctx, guildID, channelID, emoji)
 	if core.IsCode(err, repoerrors.CodeSqlNoRows) {
@@ -78,11 +77,20 @@ func (service *Service) UpdateOne(ctx context.Context, guildID, channelID, emoji
 	}
 	return result, err
 }
-
 func (service *Service) DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
 	result, err := service.database.DeleteOne(ctx, guildID, channelID)
 	if core.IsCode(err, repoerrors.CodeSqlNoRows) {
 		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
 	}
 	return result, err
+}
+func (service *Service) ObtainAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error) {
+	result, err := service.database.GetAll(ctx, guildID)
+	if err != nil {
+		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return result, nil
 }
