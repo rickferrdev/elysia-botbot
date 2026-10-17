@@ -1,4 +1,4 @@
-package discord
+package discordclient
 
 import (
 	"context"
@@ -16,9 +16,10 @@ import (
 )
 
 type DiscordClient struct {
+	Bot    *bot.Bot
+	Router *bot.Router
+
 	lifecycle fx.Lifecycle
-	Bot       *bot.Bot
-	Router    *bot.Router
 	env       *env.Env
 	logger    *slog.Logger
 	ctx       context.Context
@@ -26,7 +27,7 @@ type DiscordClient struct {
 	guildID   snowflake.ID
 }
 
-type Params struct {
+type FxArgs struct {
 	fx.In
 	Lifecycle fx.Lifecycle
 	Env       *env.Env
@@ -38,19 +39,19 @@ var Invoke = fx.Invoke(func(discord *DiscordClient) error {
 	return discord.Start()
 })
 
-func New(params Params) *DiscordClient {
-	guildID := snowflake.MustParse(params.Env.GuildID)
+func New(FxArgs FxArgs) *DiscordClient {
+	guildID := snowflake.MustParse(FxArgs.Env.GuildID)
 
 	client := DiscordClient{
-		env:       params.Env,
-		lifecycle: params.Lifecycle,
-		logger:    params.Logger,
+		env:       FxArgs.Env,
+		lifecycle: FxArgs.Lifecycle,
+		logger:    FxArgs.Logger,
 		guildID:   guildID,
 	}
 
 	client.Router = bot.NewRouter()
 	client.Bot = bot.New(
-		params.Env.DiscordToken,
+		FxArgs.Env.DiscordToken,
 		bot.WithIntents(intents.Guilds),
 		bot.WithRouter(client.Router),
 		bot.WithGuildCommandSync(guildID),

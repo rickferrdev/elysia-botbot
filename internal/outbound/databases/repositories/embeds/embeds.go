@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/sqlite"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/sqliteclient"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"go.uber.org/fx"
 )
@@ -13,12 +13,13 @@ var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
 
 type (
 	Database struct {
-		sqlite *sqlite.SqliteClient
+		sqlite *sqliteclient.SqliteClient
 	}
 
-	Params struct {
+	FxArgs struct {
 		fx.In
-		SqliteClient *sqlite.SqliteClient
+
+		SqliteClient *sqliteclient.SqliteClient
 	}
 )
 
@@ -30,9 +31,9 @@ type Interface interface {
 	GetAll(ctx context.Context, guildID, authorID string) ([]domain.Embed, error)
 }
 
-func New(params Params) (*Database, error) {
+func New(FxArgs FxArgs) (*Database, error) {
 	database := Database{
-		sqlite: params.SqliteClient,
+		sqlite: FxArgs.SqliteClient,
 	}
 
 	models := []any{
@@ -40,7 +41,7 @@ func New(params Params) (*Database, error) {
 	}
 
 	for _, model := range models {
-		_, err := params.SqliteClient.DB.NewCreateTable().
+		_, err := FxArgs.SqliteClient.DB.NewCreateTable().
 			Model(model).
 			IfNotExists().
 			Exec(context.Background())
@@ -76,19 +77,23 @@ func (database *Database) UpsertOne(ctx context.Context, embed domain.Embed) (*d
 
 func (database *Database) DeleteOne(ctx context.Context, id int) (*domain.Embed, error) {
 	var schema SchemaEmbed
+
 	err := database.sqlite.DB.NewDelete().Model(&schema).Where("id = ?", id).Returning("*").Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
+
 	return schema.NewDomainEmbed(), nil
 }
 
 func (database *Database) GetOne(ctx context.Context, id int) (*domain.Embed, error) {
 	var schema SchemaEmbed
+
 	err := database.sqlite.DB.NewSelect().Model(&schema).Where("id = ?", id).Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
+
 	return schema.NewDomainEmbed(), nil
 }
 

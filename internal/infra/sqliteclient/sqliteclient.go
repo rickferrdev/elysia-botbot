@@ -1,4 +1,4 @@
-package sqlite
+package sqliteclient
 
 import (
 	"database/sql"
@@ -18,14 +18,14 @@ type SqliteClient struct {
 	DB *bun.DB
 }
 
-type Params struct {
+type FxArgs struct {
 	fx.In
 	Lifecycle fx.Lifecycle
 	Logger    *slog.Logger
 	Env       *env.Env
 }
 
-func New(params Params) (*SqliteClient, error) {
+func New(FxArgs FxArgs) (*SqliteClient, error) {
 	sqldb, err := sql.Open(sqliteshim.ShimName, "file:local.db?cache=shared&mode=rwc")
 	if err != nil {
 		panic(err)
