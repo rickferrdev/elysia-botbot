@@ -1,18 +1,18 @@
 package infra
 
 import (
-	"github.com/rickferrdev/elysia-botbot/internal/infra/discord"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/logger"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/sqlite"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/sqliteclient"
 	"go.uber.org/fx"
 )
 
 var Module = fx.Module(
 	"infra",
-	discord.Provide,
-	discord.Invoke,
+	discordclient.Provide,
+	discordclient.Invoke,
 	logger.Provide,
 
-	sqlite.Provide,
-	sqlite.Invoke,
+	sqliteclient.Provide,
+	sqliteclient.Invoke,
 )
