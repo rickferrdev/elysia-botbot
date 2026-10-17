@@ -8,6 +8,7 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/autoreactions"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/redisclient"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"go.uber.org/fx"
 )
@@ -17,20 +18,22 @@ var Invoke = fx.Invoke(New)
 type FxArgs struct {
 	fx.In
 
-	AutoReactionsService autoreactions.Interface
-	DiscordClient        *discordclient.DiscordClient
+	RedisClient   *redisclient.RedisClient
+	DiscordClient *discordclient.DiscordClient
+	AutoReactions autoreactions.Interface
 }
 
 type Event struct {
-	logger               *slog.Logger
-	autoReactionsService autoreactions.Interface
-	discordClient        *discordclient.DiscordClient
+	redis         redisclient.RedisClient
+	client        *discordclient.DiscordClient
+	logger        *slog.Logger
+	autoreactions autoreactions.Interface
 }
 
 func New(FxArgs FxArgs) {
 	event := Event{
-		autoReactionsService: FxArgs.AutoReactionsService,
-		discordClient:        FxArgs.DiscordClient,
+		autoreactions: FxArgs.AutoReactions,
+		client:        FxArgs.DiscordClient,
 	}
 
 	FxArgs.DiscordClient.Bot.OnMessageCreate(func(ctx *bot.MessageContext) {
@@ -43,7 +46,7 @@ func (command *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 		return
 	}
 
-	data, err := command.autoReactionsService.ObtainOne(ctx.Context(), ctx.GuildID.String(), ctx.ChannelID().String())
+	data, err := command.autoreactions.ObtainOne(ctx.Context(), ctx.GuildID.String(), ctx.ChannelID().String())
 	if err != nil {
 		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
 			return
