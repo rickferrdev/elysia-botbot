@@ -22,34 +22,34 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/embeds"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/discord"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
 	"go.uber.org/fx"
 )
 
 var Invoke = fx.Invoke(New)
 
-type Args struct {
+type FxArgs struct {
 	fx.In
 
-	ResponderService responder.Interface
-	InteractionFlow  interactionflow.Interface
-	EmbedsService    embeds.Interface
-	DiscordClient    *discord.DiscordClient
+	Responder       responder.Interface
+	InteractionFlow interactionflow.Interface
+	Embeds          embeds.Interface
+	DiscordClient   *discordclient.DiscordClient
 }
 
 type Command struct {
-	interactionFlow interactionflow.Interface
-	embedsService   embeds.Interface
-	discordClient   *discord.DiscordClient
-	responder       responder.Interface
+	flow      interactionflow.Interface
+	embeds    embeds.Interface
+	client    *discordclient.DiscordClient
+	responder responder.Interface
 }
 
-func New(args Args) *Command {
+func New(args FxArgs) *Command {
 	embeds := Command{
-		interactionFlow: args.InteractionFlow,
-		responder:       args.ResponderService,
-		discordClient:   args.DiscordClient,
-		embedsService:   args.EmbedsService,
+		flow:      args.InteractionFlow,
+		responder: args.Responder,
+		client:    args.DiscordClient,
+		embeds:    args.Embeds,
 	}
 
 	args.DiscordClient.Router.Command(
@@ -71,20 +71,21 @@ func New(args Args) *Command {
 				permissions.Administrator,
 			),
 		))
+
 	return &embeds
 }
 
-func (command *Command) execute(ctx *bot.InteractionContext) {
-	command.EmbedsSetup(ctx)
+func (cmd *Command) execute(ctx *bot.InteractionContext) {
+	cmd.EmbedsSetup(ctx)
 }
 
-func (command *Command) EmbedsSetup(ctx *bot.InteractionContext) {
+func (cmd *Command) EmbedsSetup(ctx *bot.InteractionContext) {
 	if err := ctx.DeferEphemeral(); err != nil {
 		return
 	}
 
 	menuID := uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitStringSelect(ctx, []components.SelectOption{
+	interaction, err := cmd.flow.AwaitStringSelect(ctx, []components.SelectOption{
 		components.NewSelectOptionBuilder().
 			SetLabel("Criar").
 			SetValue("create").
@@ -123,100 +124,111 @@ func (command *Command) EmbedsSetup(ctx *bot.InteractionContext) {
 		Build(),
 	)
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	switch interaction.Values()[0] {
 	case "create":
-		command.Create(interaction)
+		cmd.Create(interaction)
 		return
 	case "obtain":
-		command.Obtain(interaction)
+		cmd.Obtain(interaction)
 		return
 	case "publish":
-		command.Publish(interaction)
+		cmd.Publish(interaction)
 		return
 	case "update":
-		command.Update(interaction)
+		cmd.Update(interaction)
 		return
 	case "delete":
-		command.Delete(interaction)
+		cmd.Delete(interaction)
 		return
 	case "obtain-all":
-		command.ObtainAll(interaction)
+		cmd.ObtainAll(interaction)
 		return
 	default:
 		return
 	}
 }
-func (command *Command) Create(ctx *bot.InteractionContext) {
+
+func (cmd *Command) Create(ctx *bot.InteractionContext) {
 	if err := ctx.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	content := "Envie um anexo (ex.: `.json`) ou cole a estrutura JSON da incorporação nesta conversa."
 	userID, channelID := ctx.User().ID, ctx.ChannelID()
 	if _, err := ctx.EditReplyComplex(rest.EditMessageParams{
 		Content:    &content,
 		Components: &[]components.Component{},
 	}); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	await, cancel := context.WithTimeout(ctx.Context(), 2*time.Minute)
 	defer cancel()
+
 	message, err := ctx.Bot.AwaitMessage(await, func(mc *bot.MessageContext) bool {
 		return mc.Author.ID == userID &&
 			mc.ChannelID() == channelID &&
 			(len(mc.Attachments) > 0 || strings.TrimSpace(mc.Content) != "")
 	})
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	var source string
 	var data *domain.Embed
+
 	switch {
 	case len(message.Attachments) > 0:
 		source = "Anexo"
-		data, err = command.embedsService.HandlerAttachments(ctx.Context(), 0, message.GuildID.String(), ctx.User().ID.String(), message.Attachments[0])
+		data, err = cmd.embeds.HandlerAttachments(ctx.Context(), 0, message.GuildID.String(), ctx.User().ID.String(), message.Attachments[0])
 		if err != nil {
 			if errors.Is(err, embeds.ErrInvalidInput) || errors.Is(err, embeds.ErrMaxSize) {
-				command.responder.Sender(responder.WithStatusBadRequest(ctx, err))
+				cmd.responder.Sender(ctx, responder.WithBadArguments, err)
 				return
 			}
 			if errors.Is(err, embeds.ErrConflict) {
-				command.responder.Sender(responder.WithStatusConflict(ctx, err))
+				cmd.responder.Sender(ctx, responder.WithConflict, err)
 				return
 			}
-			command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithInternal, err)
 			return
 		}
+
 	case len(message.Content) > 0:
 		source = "Texto (JSON)"
-		data, err = command.embedsService.HandlerMessageContent(ctx.Context(), 0, message.GuildID.String(), ctx.User().ID.String(), message.Content)
+		data, err = cmd.embeds.HandlerMessageContent(ctx.Context(), 0, message.GuildID.String(), ctx.User().ID.String(), message.Content)
 		if err != nil {
 			if errors.Is(err, embeds.ErrInvalidInput) {
-				command.responder.Sender(responder.WithStatusBadRequest(ctx, err))
+				cmd.responder.Sender(ctx, responder.WithBadArguments, err)
 				return
 			}
 			if errors.Is(err, embeds.ErrConflict) {
-				command.responder.Sender(responder.WithStatusConflict(ctx, err))
+				cmd.responder.Sender(ctx, responder.WithConflict, err)
 				return
 			}
-			command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithInternal, err)
 			return
 		}
+
 	default:
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Criação de Incorporação 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	fields := map[string]string{
 		"── .✦ Identificador:": fmt.Sprintf("`%v`", data.ID),
 		"⋆˚꩜｡ Tipo de envio:":  fmt.Sprintf("`%v`", source),
@@ -224,14 +236,17 @@ func (command *Command) Create(ctx *bot.InteractionContext) {
 		"⋆˚꩜｡ Servidor:":       fmt.Sprintf("**%v**", ctx.Guild.ID),
 		"⋆˚꩜｡ Status:":         "`Criada com sucesso!`",
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(ctx, embeder.Build(), nil))
+
+	cmd.responder.Sender(ctx, responder.WithEmbed(embeder.Build()), nil)
 }
-func (command *Command) Obtain(ctx *bot.InteractionContext) {
+
+func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 	menuID, inputID := uuid.NewString(), uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
+	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
 		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
@@ -242,46 +257,53 @@ func (command *Command) Obtain(ctx *bot.InteractionContext) {
 		components.NewModalBuilder().SetTitle("Consultar incorporação").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	value := interaction.ModalValue(inputID)
 	id, err := strconv.Atoi(value)
 	if err != nil {
 		err = fmt.Errorf("%w: invalid embed ID: %v", embeds.ErrInvalidInput, err)
-		command.responder.Sender(responder.WithStatusBadRequest(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 		return
 	}
+
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
-	embed, err := command.embedsService.ObtainOne(interaction.Context(), id)
+
+	embed, err := cmd.embeds.ObtainOne(interaction.Context(), id)
 	if err != nil {
 		if errors.Is(err, embeds.ErrNotFound) {
-			command.responder.Sender(responder.WithStatusNotFound(interaction, err))
+			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	var decode domain.EmbedContentDecode
 	if err := json.Unmarshal([]byte(embed.Content), &decode); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Obter uma Incorporação 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	fields := map[string]string{
 		"── .✦ Identificador:":  fmt.Sprintf("`%v`", embed.ID),
 		"⋆˚꩜｡ Criado por:":      fmt.Sprintf("<@%v>", embed.UserID),
 		"⋆˚꩜｡ Servidor:":        fmt.Sprintf("**%v**", embed.GuildID),
 		"⋆˚꩜｡ Total de embeds:": fmt.Sprintf("`%d`", len(decode.Embeds)),
 	}
+
 	if strings.TrimSpace(decode.Content) != "" {
 		contentPreview := decode.Content
 		if len(contentPreview) > 80 {
@@ -289,31 +311,37 @@ func (command *Command) Obtain(ctx *bot.InteractionContext) {
 		}
 		fields["⋆˚꩜｡ Conteúdo de texto:"] = fmt.Sprintf("`%v`", contentPreview)
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
+
+	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
 }
-func (command *Command) ObtainAll(ctx *bot.InteractionContext) {
+
+func (cmd *Command) ObtainAll(ctx *bot.InteractionContext) {
 	if err := ctx.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
-	data, err := command.embedsService.ObtainAll(ctx.Context(), ctx.GuildID().String(), ctx.User().ID.String())
+
+	data, err := cmd.embeds.ObtainAll(ctx.Context(), ctx.GuildID().String(), ctx.User().ID.String())
 	if err != nil {
 		if errors.Is(err, embeds.ErrNotFound) {
-			command.responder.Sender(responder.WithStatusNotFound(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Obter uma Incorporação 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	var fields map[string]string
 	for _, value := range data {
 		var builder strings.Builder
@@ -328,14 +356,17 @@ func (command *Command) ObtainAll(ctx *bot.InteractionContext) {
 			fmt.Sprintf("── .✦ Identificador: <%v>:", value.ID): builder.String(),
 		}
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(ctx, embeder.Build(), nil))
+
+	cmd.responder.Sender(ctx, responder.WithEmbed(embeder.Build()), nil)
 }
-func (command *Command) Publish(ctx *bot.InteractionContext) {
+
+func (cmd *Command) Publish(ctx *bot.InteractionContext) {
 	menuID, inputID := uuid.NewString(), uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
+	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
 		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
@@ -346,22 +377,25 @@ func (command *Command) Publish(ctx *bot.InteractionContext) {
 		components.NewModalBuilder().SetTitle("Publicar incorporação").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	value := interaction.ModalValue(inputID)
 	id, err := strconv.Atoi(value)
 	if err != nil {
 		err = fmt.Errorf("%w: invalid embed ID: %v", embeds.ErrInvalidInput, err)
-		command.responder.Sender(responder.WithStatusBadRequest(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 		return
 	}
+
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	channelMenuID := uuid.NewString()
-	interaction, err = command.interactionFlow.AwaitChannelSelect(interaction,
+	interaction, err = cmd.flow.AwaitChannelSelect(interaction,
 		components.NewChannelSelectMenuBuilder().
 			SetCustomID(channelMenuID).
 			SetMaxValues(1).
@@ -369,59 +403,69 @@ func (command *Command) Publish(ctx *bot.InteractionContext) {
 			SetPlaceholder("Selecione o canal para publicar.").
 			SetChannelTypes(components.ChannelType(channels.ChannelTypeGuildText)).Build())
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	channelID, err := snowflake.Parse(interaction.Values()[0])
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
-	data, err := command.embedsService.ObtainOne(interaction.Context(), id)
+
+	data, err := cmd.embeds.ObtainOne(interaction.Context(), id)
 	if err != nil {
 		if errors.Is(err, embeds.ErrNotFound) {
-			command.responder.Sender(responder.WithStatusNotFound(interaction, err))
+			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	var decode domain.EmbedContentDecode
 	if err := json.Unmarshal([]byte(data.Content), &decode); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	if _, err := interaction.Bot.Rest.CreateMessageComplex(interaction.Context(), channelID, messages.MessageSend{
 		Content: decode.Content,
 		Embeds:  decode.Embeds,
 	}); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Publicar uma Incorporação 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	fields := map[string]string{
 		"── .✦ Identificador:": fmt.Sprintf("`%v`", id),
 		"⋆˚꩜｡ Canal de envio:": fmt.Sprintf("<#%v>", channelID),
 		"⋆˚꩜｡ Publicado por:":  fmt.Sprintf("<@%v>", interaction.User().ID),
 		"⋆˚꩜｡ Status:":         "`Publicada com sucesso!`",
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
+
+	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
 }
-func (command *Command) Update(ctx *bot.InteractionContext) {
+
+func (cmd *Command) Update(ctx *bot.InteractionContext) {
 	menuID, inputID := uuid.NewString(), uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
+	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
 		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
@@ -432,97 +476,110 @@ func (command *Command) Update(ctx *bot.InteractionContext) {
 		components.NewModalBuilder().SetTitle("Atualizar incorporação").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	value := interaction.ModalValue(inputID)
 	id, err := strconv.Atoi(value)
 	if err != nil {
 		err = fmt.Errorf("%w: invalid embed ID: %v", embeds.ErrInvalidInput, err)
-		command.responder.Sender(responder.WithStatusBadRequest(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 		return
 	}
+
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	content := "Envie o arquivo `.json` ou cole a nova estrutura JSON da incorporação nesta conversa."
 	if _, err := interaction.EditReplyComplex(rest.EditMessageParams{
 		Content:    &content,
 		Components: &[]components.Component{},
 	}); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	await, cancel := context.WithTimeout(interaction.Context(), 2*time.Minute)
 	defer cancel()
+
 	message, err := ctx.Bot.AwaitMessage(await, func(mc *bot.MessageContext) bool {
 		return mc.Author.ID == interaction.User().ID &&
 			mc.ChannelID() == interaction.ChannelID() &&
 			(len(mc.Attachments) > 0 || strings.TrimSpace(mc.Content) != "")
 	})
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	var source string
 	var data *domain.Embed
+
 	switch {
 	case len(message.Attachments) > 0:
 		source = "Anexo (.json)"
-		data, err = command.embedsService.HandlerAttachments(ctx.Context(), id, message.GuildID.String(), ctx.User().ID.String(), message.Attachments[0])
+		data, err = cmd.embeds.HandlerAttachments(ctx.Context(), id, message.GuildID.String(), ctx.User().ID.String(), message.Attachments[0])
 		if err != nil {
 			if errors.Is(err, embeds.ErrInvalidInput) || errors.Is(err, embeds.ErrMaxSize) {
-				command.responder.Sender(responder.WithStatusBadRequest(interaction, err))
+				cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 				return
 			}
 			if errors.Is(err, embeds.ErrConflict) {
-				command.responder.Sender(responder.WithStatusConflict(interaction, err))
+				cmd.responder.Sender(interaction, responder.WithConflict, err)
 				return
 			}
-			command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+			cmd.responder.Sender(interaction, responder.WithInternal, err)
 			return
 		}
+
 	case len(message.Content) > 0:
 		source = "Texto (JSON)"
-		data, err = command.embedsService.HandlerMessageContent(ctx.Context(), id, message.GuildID.String(), ctx.User().ID.String(), message.Content)
+		data, err = cmd.embeds.HandlerMessageContent(ctx.Context(), id, message.GuildID.String(), ctx.User().ID.String(), message.Content)
 		if err != nil {
 			if errors.Is(err, embeds.ErrInvalidInput) {
-				command.responder.Sender(responder.WithStatusBadRequest(interaction, err))
+				cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 				return
 			}
 			if errors.Is(err, embeds.ErrConflict) {
-				command.responder.Sender(responder.WithStatusConflict(interaction, err))
+				cmd.responder.Sender(interaction, responder.WithConflict, err)
 				return
 			}
-			command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+			cmd.responder.Sender(interaction, responder.WithInternal, err)
 			return
 		}
+
 	default:
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Atualizar uma Incorporação 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	fields := map[string]string{
 		"── .✦ Identificador:": fmt.Sprintf("`%v`", data.ID),
 		"⋆˚꩜｡ Tipo de envio:":  fmt.Sprintf("`%v`", source),
 		"⋆˚꩜｡ Atualizado por:": fmt.Sprintf("<@%v>", interaction.User().ID),
 		"⋆˚꩜｡ Status:":         "`Atualizada com sucesso!`",
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
+
+	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
 }
 
-func (command *Command) Delete(ctx *bot.InteractionContext) {
+func (cmd *Command) Delete(ctx *bot.InteractionContext) {
 	menuID, inputID := uuid.NewString(), uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
+	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
 		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
@@ -533,42 +590,49 @@ func (command *Command) Delete(ctx *bot.InteractionContext) {
 		components.NewModalBuilder().SetTitle("Deletar incorporação").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	value := interaction.ModalValue(inputID)
 	id, err := strconv.Atoi(value)
 	if err != nil {
 		err = fmt.Errorf("%w: invalid embed ID: %v", embeds.ErrInvalidInput, err)
-		command.responder.Sender(responder.WithStatusBadRequest(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 		return
 	}
+
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
-	_, err = command.embedsService.DeleteOne(interaction.Context(), id)
+
+	_, err = cmd.embeds.DeleteOne(interaction.Context(), id)
 	if err != nil {
 		if errors.Is(err, embeds.ErrNotFound) {
-			command.responder.Sender(responder.WithStatusNotFound(interaction, err))
+			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(interaction, err))
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Deletar uma Incorporação 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	fields := map[string]string{
 		"── .✦ Identificador:": fmt.Sprintf("`%v`", id),
 		"⋆˚꩜｡ Removido por:":   fmt.Sprintf("<@%v>", interaction.User().ID),
 		"⋆˚꩜｡ Status:":         "`Removida com sucesso!`",
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
+
+	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
 }
