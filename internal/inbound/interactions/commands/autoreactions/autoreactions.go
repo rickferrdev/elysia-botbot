@@ -15,33 +15,36 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/autoreactions"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/discord"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
 	"go.uber.org/fx"
 )
 
 var Invoke = fx.Invoke(New)
 
-type Args struct {
+type FxArgs struct {
 	fx.In
-	ResponderService     responder.Interface
-	InteractionFlow      interactionflow.Interface
-	AutoReactionsService autoreactions.Interface
-	DiscordClient        *discord.DiscordClient
-}
-type Command struct {
-	responder            responder.Interface
-	interactionFlow      interactionflow.Interface
-	autoReactionsService autoreactions.Interface
-	discordClient        *discord.DiscordClient
+
+	Responder       responder.Interface
+	InteractionFlow interactionflow.Interface
+	AutoReactions   autoreactions.Interface
+	DiscordClient   *discordclient.DiscordClient
 }
 
-func New(args Args) *Command {
+type Command struct {
+	responder     responder.Interface
+	flow          interactionflow.Interface
+	autoreactions autoreactions.Interface
+	client        *discordclient.DiscordClient
+}
+
+func New(args FxArgs) *Command {
 	server := Command{
-		responder:            args.ResponderService,
-		interactionFlow:      args.InteractionFlow,
-		discordClient:        args.DiscordClient,
-		autoReactionsService: args.AutoReactionsService,
+		responder:     args.Responder,
+		flow:          args.InteractionFlow,
+		client:        args.DiscordClient,
+		autoreactions: args.AutoReactions,
 	}
+
 	args.DiscordClient.Router.Command(
 		"autoreactions",
 		"Configurações úteis relacionadas a autorreações.",
@@ -61,17 +64,21 @@ func New(args Args) *Command {
 				permissions.Administrator,
 			),
 		))
+
 	return &server
 }
-func (command *Command) execute(ctx *bot.InteractionContext) {
-	command.AutoReactionsSetup(ctx)
+
+func (cmd *Command) execute(ctx *bot.InteractionContext) {
+	cmd.AutoReactionsSetup(ctx)
 }
-func (command *Command) AutoReactionsSetup(ctx *bot.InteractionContext) {
+
+func (cmd *Command) AutoReactionsSetup(ctx *bot.InteractionContext) {
 	if err := ctx.DeferEphemeral(); err != nil {
 		return
 	}
+
 	menuID := uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitStringSelect(ctx, []components.SelectOption{
+	interaction, err := cmd.flow.AwaitStringSelect(ctx, []components.SelectOption{
 		components.NewSelectOptionBuilder().
 			SetLabel("Criar").
 			SetValue("create").
@@ -105,35 +112,39 @@ func (command *Command) AutoReactionsSetup(ctx *bot.InteractionContext) {
 		Build(),
 	)
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	switch interaction.Values()[0] {
 	case "create":
-		command.Create(interaction)
+		cmd.Create(interaction)
 		return
 	case "obtain":
-		command.Obtain(interaction)
+		cmd.Obtain(interaction)
 		return
 	case "update":
-		command.Update(interaction)
+		cmd.Update(interaction)
 		return
 	case "delete":
-		command.Delete(interaction)
+		cmd.Delete(interaction)
 		return
 	case "obtain-all":
-		command.ObtainAll(interaction)
+		cmd.ObtainAll(interaction)
+		return
 	default:
 		return
 	}
 }
-func (command *Command) Create(ctx *bot.InteractionContext) {
+
+func (cmd *Command) Create(ctx *bot.InteractionContext) {
 	if err := ctx.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	channelSelectID := uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitChannelSelect(ctx, components.NewChannelSelectBuilder().
+	interaction, err := cmd.flow.AwaitChannelSelect(ctx, components.NewChannelSelectBuilder().
 		SetCustomID(channelSelectID).
 		SetMaxValues(1).
 		SetMinValues(1).
@@ -141,12 +152,14 @@ func (command *Command) Create(ctx *bot.InteractionContext) {
 		SetPlaceholder("Selecione um canal para monitorar.").
 		Build())
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	channelID := interaction.Values()[0]
+
 	menuID, inputID := uuid.NewString(), uuid.NewString()
-	interaction, err = command.interactionFlow.AwaitSimpleTextModal(interaction, components.NewTextInputBuilder().
+	interaction, err = cmd.flow.AwaitSimpleTextModal(interaction, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetPlaceholder("Qual emoji usar? Ex.: 🐶").
 		SetStyle(components.TextInputStyleShort).
@@ -157,16 +170,19 @@ func (command *Command) Create(ctx *bot.InteractionContext) {
 		SetCustomID(menuID).
 		Build())
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	emoji := interaction.ModalValue(inputID)
+
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	stringSelectMenuID := uuid.NewString()
-	interaction, err = command.interactionFlow.AwaitStringSelect(interaction, []components.SelectOption{
+	interaction, err = cmd.flow.AwaitStringSelect(interaction, []components.SelectOption{
 		components.NewSelectOptionBuilder().
 			SetLabel("Mensagem").
 			SetValue(string(domain.AutoReactionTypeMessage)).
@@ -184,52 +200,62 @@ func (command *Command) Create(ctx *bot.InteractionContext) {
 		SetPlaceholder("Selecione o que deve ser monitorado.").
 		Build())
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	attachmentType := interaction.Values()[0]
+
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	data := domain.AutoReactions{
 		GuildID:   interaction.Guild.ID.String(),
 		ChannelID: channelID,
 		Type:      domain.AutoReactionType(attachmentType),
 		Emoji:     emoji,
 	}
-	result, err := command.autoReactionsService.CreateOne(interaction.Context(), data)
+
+	result, err := cmd.autoreactions.CreateOne(interaction.Context(), data)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrConflict) {
-			command.responder.Sender(responder.WithStatusConflict(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithConflict, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Criação de AutoReaction 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	fields := map[string]string{
 		"── .✦ Tipo de monitoramento:": fmt.Sprintf("`%v`", result.Type),
 		"⋆˚꩜｡ Canal registrado:":       fmt.Sprintf("<#%v>", result.ChannelID),
 		"⋆˚꩜｡ Emoji:":                  fmt.Sprintf("%v", result.Emoji),
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
+
+	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
 }
-func (command *Command) Obtain(ctx *bot.InteractionContext) {
+
+func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 	if err := ctx.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	menuID := uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitChannelSelect(ctx, components.NewChannelSelectMenuBuilder().
+	interaction, err := cmd.flow.AwaitChannelSelect(ctx, components.NewChannelSelectMenuBuilder().
 		SetCustomID(menuID).
 		SetPlaceholder("Selecione o canal monitorado.").
 		SetMaxValues(1).
@@ -237,85 +263,101 @@ func (command *Command) Obtain(ctx *bot.InteractionContext) {
 		SetChannelTypes(components.ChannelType(channels.ChannelTypeGuildText)).
 		Build())
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	channelID := interaction.Values()[0]
-	result, err := command.autoReactionsService.ObtainOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
+
+	result, err := cmd.autoreactions.ObtainOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrNotFound) {
-			command.responder.Sender(responder.WithStatusNotFound(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Obter uma AutoReaction 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	fields := map[string]string{
 		"── .✦ Tipo de monitoramento:": fmt.Sprintf("`%v`", result.Type),
 		"⋆˚꩜｡ Canal registrado:":       fmt.Sprintf("<#%v>", result.ChannelID),
 		"⋆˚꩜｡ Emoji:":                  fmt.Sprintf("%v", result.Emoji),
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
+
+	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
 }
-func (command *Command) ObtainAll(ctx *bot.InteractionContext) {
+
+func (cmd *Command) ObtainAll(ctx *bot.InteractionContext) {
 	if err := ctx.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
-	data, err := command.autoReactionsService.ObtainAll(ctx.Context(), ctx.GuildID().String())
+
+	data, err := cmd.autoreactions.ObtainAll(ctx.Context(), ctx.GuildID().String())
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrNotFound) {
-			command.responder.Sender(responder.WithStatusNotFound(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Obter todas AutoReactions 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	var fields map[string]string
 	for _, value := range data {
 		fields = map[string]string{
 			fmt.Sprintf("<#%v> -> %v", value.ChannelID, value.Emoji): fmt.Sprintf("Tipo de monitoramento: `%v`", value.Type),
 		}
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(ctx, embeder.Build(), nil))
+
+	cmd.responder.Sender(ctx, responder.WithEmbed(embeder.Build()), nil)
 }
-func (command *Command) Update(ctx *bot.InteractionContext) {
+
+func (cmd *Command) Update(ctx *bot.InteractionContext) {
 	if err := ctx.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	channelSelectID := uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitChannelSelect(ctx, components.NewChannelSelectBuilder().
+	interaction, err := cmd.flow.AwaitChannelSelect(ctx, components.NewChannelSelectBuilder().
 		SetCustomID(channelSelectID).
 		SetMaxValues(1).
 		SetMinValues(1).
 		SetPlaceholder("Selecione o canal monitorado.").
 		Build())
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	channelID := interaction.Values()[0]
+
 	menuID, inputID := uuid.NewString(), uuid.NewString()
-	interaction, err = command.interactionFlow.AwaitSimpleTextModal(interaction, components.NewTextInputBuilder().
+	interaction, err = cmd.flow.AwaitSimpleTextModal(interaction, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetPlaceholder("Qual emoji usar? Ex.: 🐶").
 		SetStyle(components.TextInputStyleShort).
@@ -326,69 +368,82 @@ func (command *Command) Update(ctx *bot.InteractionContext) {
 		SetCustomID(menuID).
 		Build())
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	emoji := interaction.ModalValue(inputID)
-	result, err := command.autoReactionsService.UpdateOne(ctx.Context(), interaction.Guild.ID.String(), channelID, emoji)
+
+	result, err := cmd.autoreactions.UpdateOne(ctx.Context(), interaction.Guild.ID.String(), channelID, emoji)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrNotFound) {
-			command.responder.Sender(responder.WithStatusNotFound(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Atualizar uma AutoReaction 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
 			DisplayAvatarURL(users.AvatarURLOptions{})).
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
+
 	fields := map[string]string{
 		"── .✦ Tipo de monitoramento:": fmt.Sprintf("`%v`", result.Type),
 		"⋆˚꩜｡ Canal registrado:":       fmt.Sprintf("<#%v>", result.ChannelID),
 		"⋆˚꩜｡ Emoji:":                  fmt.Sprintf("%v", result.Emoji),
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
+
+	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
 }
-func (command *Command) Delete(ctx *bot.InteractionContext) {
+
+func (cmd *Command) Delete(ctx *bot.InteractionContext) {
 	if err := ctx.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	channelSelectID := uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitChannelSelect(ctx, components.NewChannelSelectBuilder().
+	interaction, err := cmd.flow.AwaitChannelSelect(ctx, components.NewChannelSelectBuilder().
 		SetCustomID(channelSelectID).
 		SetMaxValues(1).
 		SetMinValues(1).
 		SetPlaceholder("Selecione o canal monitorado.").
 		Build())
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	channelID := interaction.Values()[0]
-	result, err := command.autoReactionsService.DeleteOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
+
+	result, err := cmd.autoreactions.DeleteOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrNotFound) {
-			command.responder.Sender(responder.WithStatusNotFound(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
+
 	embeder := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Deletar uma AutoReaction 𝜗𝜚˚⋆").
 		SetThumbnail(ctx.Bot.User().
@@ -401,8 +456,10 @@ func (command *Command) Delete(ctx *bot.InteractionContext) {
 		"⋆˚꩜｡ Canal registrado:":       fmt.Sprintf("<#%v>", result.ChannelID),
 		"⋆˚꩜｡ Emoji:":                  fmt.Sprintf("%v", result.Emoji),
 	}
+
 	for index, value := range fields {
 		embeder.AddField(index, value, false)
 	}
-	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
+
+	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
 }

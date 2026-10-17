@@ -14,33 +14,34 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/server"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/discord"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
 	"go.uber.org/fx"
 )
 
 var Invoke = fx.Invoke(New)
 
-type Args struct {
+type FxArgs struct {
 	fx.In
-	DiscordClient    *discord.DiscordClient
-	ResponderService responder.Interface
-	ServerService    server.Interface
-	InteractionFlow  interactionflow.Interface
+
+	DiscordClient   *discordclient.DiscordClient
+	Responder       responder.Interface
+	Server          server.Interface
+	InteractionFlow interactionflow.Interface
 }
 
 type Command struct {
-	interactionFlow interactionflow.Interface
-	discordClient   *discord.DiscordClient
-	serverService   server.Interface
-	responder       responder.Interface
+	flow      interactionflow.Interface
+	client    *discordclient.DiscordClient
+	server    server.Interface
+	responder responder.Interface
 }
 
-func New(args Args) *Command {
+func New(args FxArgs) *Command {
 	server := Command{
-		interactionFlow: args.InteractionFlow,
-		responder:       args.ResponderService,
-		discordClient:   args.DiscordClient,
-		serverService:   args.ServerService,
+		flow:      args.InteractionFlow,
+		responder: args.Responder,
+		client:    args.DiscordClient,
+		server:    args.Server,
 	}
 
 	args.DiscordClient.Router.Command(
@@ -56,17 +57,20 @@ func New(args Args) *Command {
 	return &server
 }
 
-func (command *Command) execute(ctx *bot.InteractionContext) {
-	command.ServerSetup(ctx, command.discordClient.Router)
+func (cmd *Command) execute(ctx *bot.InteractionContext) {
+	cmd.ServerSetup(ctx, cmd.client.Router)
+
+	cmd.responder.Sender(ctx, responder.WithOk, nil)
+
 }
 
-func (command *Command) ServerSetup(ctx *bot.InteractionContext, router *bot.Router) {
+func (cmd *Command) ServerSetup(ctx *bot.InteractionContext, router *bot.Router) {
 	if err := ctx.DeferEphemeral(); err != nil {
 		return
 	}
 
 	menuID := uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitStringSelect(
+	interaction, err := cmd.flow.AwaitStringSelect(
 		ctx,
 		[]components.SelectOption{
 			components.NewSelectOptionBuilder().
@@ -87,39 +91,40 @@ func (command *Command) ServerSetup(ctx *bot.InteractionContext, router *bot.Rou
 			Build(),
 	)
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
 
 	switch interaction.Values()[0] {
 	case "obtain":
-		command.Obtain(interaction)
+		cmd.Obtain(interaction)
 		return
 	case "upsert":
-		command.Create(interaction)
+		cmd.Create(interaction)
 		return
 	default:
 		return
 	}
 }
 
-func (command *Command) Obtain(ctx *bot.InteractionContext) {
+func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 	if err := ctx.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
 
-	data, err := command.serverService.ObtainServerWithConfig(ctx.Context(), ctx.Guild.ID.String())
+	data, err := cmd.server.ObtainServerWithConfig(ctx.Context(), ctx.Guild.ID.String())
 	if err != nil {
 		if errors.Is(err, server.ErrNotFound) {
-			command.responder.Sender(responder.WithStatusNotFound(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
 	if data.Config == nil {
-		command.responder.Sender(responder.WithSimpleCustomMessage(ctx, "Solicite a configuração do servidor antes.", "", nil))
+		// TODO: atualizar para nova assinatura do responder (WithSimpleCustomMessage não existe mais)
+		// cmd.responder.Sender(responder.WithSimpleCustomMessage(ctx, "Solicite a configuração do servidor antes.", "", nil))
 		return
 	}
 
@@ -139,13 +144,13 @@ func (command *Command) Obtain(ctx *bot.InteractionContext) {
 		embeder.AddField(index, value, false)
 	}
 
-	command.responder.Sender(responder.WithCustomEmbed(ctx, embeder.Build(), nil))
+	cmd.responder.Sender(ctx, responder.WithEmbed(embeder.Build()), nil)
 }
 
-func (command *Command) Create(ctx *bot.InteractionContext) {
+func (cmd *Command) Create(ctx *bot.InteractionContext) {
 	inputID := uuid.NewString()
 	modalID := uuid.NewString()
-	interaction, err := command.interactionFlow.AwaitSimpleTextModal(ctx,
+	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx,
 		components.NewTextInputBuilder().
 			SetCustomID(inputID).
 			SetLabel("Digite um prefixo para o bot").
@@ -157,16 +162,16 @@ func (command *Command) Create(ctx *bot.InteractionContext) {
 		components.NewModalBuilder().SetCustomID(modalID).SetTitle("Adicionar/Atualizar as configurações").Build(),
 	)
 	if err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
 
 	if err := interaction.DeferUpdate(); err != nil {
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
 
-	err = command.serverService.CreateServerWithConfig(interaction.Context(), domain.Server{
+	err = cmd.server.CreateServerWithConfig(interaction.Context(), domain.Server{
 		GuildID: interaction.Guild.ID.String(),
 		Config: &domain.Config{
 			GuildID: interaction.Guild.ID.String(),
@@ -175,10 +180,10 @@ func (command *Command) Create(ctx *bot.InteractionContext) {
 	})
 	if err != nil {
 		if errors.Is(err, server.ErrConflict) {
-			command.responder.Sender(responder.WithStatusConflict(ctx, err))
+			cmd.responder.Sender(ctx, responder.WithConflict, err)
 			return
 		}
-		command.responder.Sender(responder.WithStatusInternalServerError(ctx, err))
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
 
@@ -197,5 +202,5 @@ func (command *Command) Create(ctx *bot.InteractionContext) {
 		embeder.AddField(index, value, false)
 	}
 
-	command.responder.Sender(responder.WithCustomEmbed(interaction, embeder.Build(), nil))
+	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
 }

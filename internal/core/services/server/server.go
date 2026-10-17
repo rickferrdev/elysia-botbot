@@ -17,8 +17,10 @@ type (
 	Service struct {
 		storage server.Interface
 	}
-	Params struct {
+
+	FxArgs struct {
 		fx.In
+
 		ServerStorage server.Interface
 	}
 )
@@ -28,9 +30,9 @@ type Interface interface {
 	ObtainServerWithConfig(ctx context.Context, guildID string) (*domain.Server, error)
 }
 
-func New(params Params) *Service {
+func New(FxArgs FxArgs) *Service {
 	service := Service{
-		storage: params.ServerStorage,
+		storage: FxArgs.ServerStorage,
 	}
 
 	return &service
@@ -41,12 +43,15 @@ func (service *Service) CreateServerWithConfig(ctx context.Context, server domai
 	if core.IsCode(err, repoerrors.CodeSqlConflict) {
 		return fmt.Errorf("%w: %w", ErrConflict, err)
 	}
+
 	return err
 }
+
 func (service *Service) ObtainServerWithConfig(ctx context.Context, guildID string) (*domain.Server, error) {
 	result, err := service.storage.GetServerWithConfig(ctx, guildID)
 	if core.IsCode(err, repoerrors.CodeSqlNoRows) {
 		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
 	}
+
 	return result, err
 }

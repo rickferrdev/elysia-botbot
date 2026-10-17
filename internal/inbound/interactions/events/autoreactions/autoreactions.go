@@ -7,32 +7,33 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/autoreactions"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/discord"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"go.uber.org/fx"
 )
 
 var Invoke = fx.Invoke(New)
 
-type Params struct {
+type FxArgs struct {
 	fx.In
+
 	AutoReactionsService autoreactions.Interface
-	DiscordClient        *discord.DiscordClient
+	DiscordClient        *discordclient.DiscordClient
 }
 
 type Event struct {
 	logger               *slog.Logger
 	autoReactionsService autoreactions.Interface
-	discordClient        *discord.DiscordClient
+	discordClient        *discordclient.DiscordClient
 }
 
-func New(params Params) {
+func New(FxArgs FxArgs) {
 	event := Event{
-		autoReactionsService: params.AutoReactionsService,
-		discordClient:        params.DiscordClient,
+		autoReactionsService: FxArgs.AutoReactionsService,
+		discordClient:        FxArgs.DiscordClient,
 	}
 
-	params.DiscordClient.Bot.OnMessageCreate(func(ctx *bot.MessageContext) {
+	FxArgs.DiscordClient.Bot.OnMessageCreate(func(ctx *bot.MessageContext) {
 		event.AutoReactionsMessageCreate(ctx)
 	})
 }
@@ -47,6 +48,7 @@ func (command *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
 			return
 		}
+
 		command.logger.Error("failed to get autoreaction", slog.String("error", err.Error()))
 		return
 	}
@@ -56,18 +58,22 @@ func (command *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 		if len(ctx.Attachments) == 0 {
 			return
 		}
+
 		if err := ctx.React(data.Emoji); err != nil {
 			command.logger.Error(err.Error())
 		}
 		return
+
 	case domain.AutoReactionTypeMessage:
 		if len(ctx.Content) == 0 {
 			return
 		}
+
 		if err := ctx.React(data.Emoji); err != nil {
 			command.logger.Error(err.Error())
 		}
 		return
+
 	default:
 		return
 	}
