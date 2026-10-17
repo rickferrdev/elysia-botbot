@@ -31,7 +31,7 @@ type Interface interface {
 	CreateOne(ctx context.Context, autoreaction domain.AutoReactions) (*domain.AutoReactions, error)
 	ObtainOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error)
 	ObtainAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error)
-	UpdateOne(ctx context.Context, guildID, channelID, emoji string) (*domain.AutoReactions, error)
+	UpdateOne(ctx context.Context, autoreaction domain.AutoReactions) (*domain.AutoReactions, error)
 	DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error)
 }
 
@@ -61,8 +61,8 @@ func (service *Service) ObtainOne(ctx context.Context, guildID, channelID string
 	return result, err
 }
 
-func (service *Service) UpdateOne(ctx context.Context, guildID, channelID, emoji string) (*domain.AutoReactions, error) {
-	result, err := service.autoreactions.UpdateOne(ctx, guildID, channelID, emoji)
+func (service *Service) UpdateOne(ctx context.Context, autoreaction domain.AutoReactions) (*domain.AutoReactions, error) {
+	result, err := service.autoreactions.UpdateOne(ctx, autoreaction)
 	if core.IsCode(err, repoerrors.CodeSqlNoRows) {
 		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
 	}

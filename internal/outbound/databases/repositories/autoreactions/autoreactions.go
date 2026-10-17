@@ -27,7 +27,7 @@ type Interface interface {
 	CreateOne(ctx context.Context, autoreactions domain.AutoReactions) (*domain.AutoReactions, error)
 	DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error)
 	GetOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error)
-	UpdateOne(ctx context.Context, guildID, channelID, emoji string) (*domain.AutoReactions, error)
+	UpdateOne(ctx context.Context, autoreactions domain.AutoReactions) (*domain.AutoReactions, error)
 	GetAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error)
 }
 
@@ -56,7 +56,12 @@ func New(FxArgs FxArgs) (*Database, error) {
 func (database *Database) CreateOne(ctx context.Context, autoreactions domain.AutoReactions) (*domain.AutoReactions, error) {
 	schema := NewSchemaAutoReactions(autoreactions)
 
-	_, err := database.sqlite.DB.NewInsert().Model(schema).Returning("*").Exec(ctx)
+	_, err := database.sqlite.DB.NewInsert().
+		Model(schema).
+		On("CONFLICT (channel_id) DO UPDATE").
+		Set("emoji = EXCLUDED.emoji").
+		Returning("*").
+		Exec(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
@@ -67,7 +72,10 @@ func (database *Database) CreateOne(ctx context.Context, autoreactions domain.Au
 func (database *Database) GetOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
 	var schema SchemaAutoReactions
 
-	err := database.sqlite.DB.NewSelect().Model(&schema).Where("channel_id = ? AND guild_id = ?", channelID, guildID).Scan(ctx)
+	err := database.sqlite.DB.NewSelect().
+		Model(&schema).
+		Where("channel_id = ? AND guild_id = ?", channelID, guildID).
+		Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
@@ -78,7 +86,11 @@ func (database *Database) GetOne(ctx context.Context, guildID, channelID string)
 func (database *Database) GetAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error) {
 	var schemas []SchemaAutoReactions
 
-	err := database.sqlite.DB.NewSelect().Model(&schemas).Where("guild_id = ?", guildID).Scan(ctx)
+	err := database.sqlite.DB.
+		NewSelect().
+		Model(&schemas).
+		Where("guild_id = ?", guildID).
+		Scan(ctx)
 	if err != nil {
 		return []domain.AutoReactions{}, repoerrors.TranslateSqliteError(err)
 	}
@@ -91,10 +103,16 @@ func (database *Database) GetAll(ctx context.Context, guildID string) ([]domain.
 	return domain, nil
 }
 
-func (database *Database) UpdateOne(ctx context.Context, guildID, channelID, emoji string) (*domain.AutoReactions, error) {
-	var schema SchemaAutoReactions
+func (database *Database) UpdateOne(ctx context.Context, autoreactions domain.AutoReactions) (*domain.AutoReactions, error) {
+	schema := NewSchemaAutoReactions(autoreactions)
 
-	err := database.sqlite.DB.NewUpdate().Model(&schema).Set("emoji = ?", emoji).Where("channel_id = ? AND guild_id = ?", channelID, guildID).Returning("*").Scan(ctx)
+	_, err := database.sqlite.DB.NewInsert().
+		Model(schema).
+		On("CONFLICT (channel_id) DO UPDATE").
+		Set("emoji = EXCLUDED.emoji").
+		Set("type = EXCLUDED.type").
+		Returning("*").
+		Exec(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
@@ -105,7 +123,11 @@ func (database *Database) UpdateOne(ctx context.Context, guildID, channelID, emo
 func (database *Database) DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
 	var schema SchemaAutoReactions
 
-	err := database.sqlite.DB.NewDelete().Model(&schema).Where("channel_id = ? AND guild_id = ?", channelID, guildID).Returning("*").Scan(ctx)
+	err := database.sqlite.DB.NewDelete().
+		Model(&schema).
+		Where("channel_id = ? AND guild_id = ?", channelID, guildID).
+		Returning("*").
+		Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}

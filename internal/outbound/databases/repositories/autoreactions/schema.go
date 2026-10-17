@@ -9,8 +9,8 @@ type SchemaAutoReactions struct {
 	bun.BaseModel `bun:"table:autoreactions,alias:autoreaction"`
 
 	ID        int                     `bun:"id,pk,autoincrement"`
-	GuildID   string                  `bun:"guild_id,unique,notnull"`
-	ChannelID string                  `bun:"channel_id,unique,notnull,"`
+	GuildID   string                  `bun:"guild_id,notnull"`
+	ChannelID string                  `bun:"channel_id,unique,notnull"`
 	Type      domain.AutoReactionType `bun:"type,notnull"`
 	Emoji     string                  `bun:"emoji,notnull"`
 }

@@ -221,10 +221,10 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 	result, err := cmd.autoreactions.CreateOne(interaction.Context(), data)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrConflict) {
-			cmd.responder.Sender(ctx, responder.WithConflict, err)
+			cmd.responder.Sender(interaction, responder.WithConflict, err)
 			return
 		}
-		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
 
@@ -269,7 +269,7 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 
 	channelID := interaction.Values()[0]
 
-	result, err := cmd.autoreactions.ObtainOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
+	result, err := cmd.autoreactions.ObtainOne(interaction.Context(), interaction.Guild.ID.String(), channelID)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrNotFound) {
 			cmd.responder.Sender(ctx, responder.WithNotFound, err)
@@ -322,15 +322,12 @@ func (cmd *Command) ObtainAll(ctx *bot.InteractionContext) {
 		SetColor(0xB4E4D6).
 		SetTimestampNow()
 
-	var fields map[string]string
 	for _, value := range data {
-		fields = map[string]string{
-			fmt.Sprintf("<#%v> -> %v", value.ChannelID, value.Emoji): fmt.Sprintf("Tipo de monitoramento: `%v`", value.Type),
-		}
-	}
-
-	for index, value := range fields {
-		embeder.AddField(index, value, false)
+		embeder.AddField(
+			fmt.Sprintf("<#%v> -> %v", value.ChannelID, value.Emoji),
+			fmt.Sprintf("Tipo de monitoramento: `%v`", value.Type),
+			false,
+		)
 	}
 
 	cmd.responder.Sender(ctx, responder.WithEmbed(embeder.Build()), nil)
@@ -372,20 +369,57 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 		return
 	}
 
+	emoji := interaction.ModalValue(inputID)
+
 	if err := interaction.DeferUpdate(); err != nil {
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
 
-	emoji := interaction.ModalValue(inputID)
+	stringSelectMenuID := uuid.NewString()
+	interaction, err = cmd.flow.AwaitStringSelect(interaction, []components.SelectOption{
+		components.NewSelectOptionBuilder().
+			SetLabel("Mensagem").
+			SetValue(string(domain.AutoReactionTypeMessage)).
+			SetDescription("Monitorar as mensagens recebidas no canal.").
+			Build(),
+		components.NewSelectOptionBuilder().
+			SetLabel("Anexos").
+			SetValue(string(domain.AutoReactionTypeAttachment)).
+			SetDescription("Monitorar os anexos recebidos no canal.").
+			Build(),
+	}, components.NewStringSelectMenuBuilder().
+		SetCustomID(stringSelectMenuID).
+		SetMaxValues(1).
+		SetMinValues(1).
+		SetPlaceholder("Selecione o que deve ser monitorado.").
+		Build())
+	if err != nil {
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		return
+	}
 
-	result, err := cmd.autoreactions.UpdateOne(ctx.Context(), interaction.Guild.ID.String(), channelID, emoji)
+	attachmentType := interaction.Values()[0]
+
+	if err := interaction.DeferUpdate(); err != nil {
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		return
+	}
+
+	data := domain.AutoReactions{
+		GuildID:   interaction.Guild.ID.String(),
+		ChannelID: channelID,
+		Type:      domain.AutoReactionType(attachmentType),
+		Emoji:     emoji,
+	}
+
+	result, err := cmd.autoreactions.UpdateOne(interaction.Context(), data)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrNotFound) {
-			cmd.responder.Sender(ctx, responder.WithNotFound, err)
+			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
-		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
 
@@ -434,13 +468,13 @@ func (cmd *Command) Delete(ctx *bot.InteractionContext) {
 
 	channelID := interaction.Values()[0]
 
-	result, err := cmd.autoreactions.DeleteOne(ctx.Context(), interaction.Guild.ID.String(), channelID)
+	result, err := cmd.autoreactions.DeleteOne(interaction.Context(), interaction.Guild.ID.String(), channelID)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrNotFound) {
-			cmd.responder.Sender(ctx, responder.WithNotFound, err)
+			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
-		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
 
