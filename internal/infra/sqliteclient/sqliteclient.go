@@ -2,6 +2,7 @@ package sqliteclient
 
 import (
 	"database/sql"
+	"fmt"
 	"log/slog"
 
 	"github.com/rickferrdev/elysia-botbot/internal/config/env"
@@ -25,8 +26,9 @@ type FxArgs struct {
 	Env       *env.Env
 }
 
-func New(FxArgs FxArgs) (*SqliteClient, error) {
-	sqldb, err := sql.Open(sqliteshim.ShimName, "file:local.db?cache=shared&mode=rwc")
+func New(args FxArgs) (*SqliteClient, error) {
+	dataSource := fmt.Sprintf("file:%v?cache=shared&mode=rwc", args.Env.SqliteDB)
+	sqldb, err := sql.Open(sqliteshim.ShimName, dataSource)
 	if err != nil {
 		panic(err)
 	}
