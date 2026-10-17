@@ -55,7 +55,6 @@ func (service *Service) CreateOne(ctx context.Context, autoreaction domain.AutoR
 	}
 
 	_ = service.delCache(ctx, autoreaction.GuildID, autoreaction.ChannelID)
-
 	return result, nil
 }
 
@@ -66,11 +65,8 @@ func (service *Service) ObtainOne(ctx context.Context, guildID, channelID string
 		service.getCacheKey(guildID, channelID),
 		&cached,
 	); err == nil && found {
-		fmt.Printf("get cache do ObtainOne: %v\n", cached)
 		return &cached, nil
 	}
-
-	fmt.Println("no cache found in ObtainOne")
 
 	result, err := service.autoreactions.GetOne(ctx, guildID, channelID)
 	if core.IsCode(err, repoerrors.CodeSqlNoRows) {
@@ -82,7 +78,6 @@ func (service *Service) ObtainOne(ctx context.Context, guildID, channelID string
 		service.getCacheKey(guildID, channelID),
 		result,
 	)
-	fmt.Printf("set cache do ObtainOne: %v\n", err)
 
 	return result, err
 }
@@ -97,7 +92,6 @@ func (service *Service) UpdateOne(ctx context.Context, autoreaction domain.AutoR
 	}
 
 	_ = service.delCache(ctx, autoreaction.GuildID, autoreaction.ChannelID)
-
 	return result, nil
 }
 
@@ -108,8 +102,6 @@ func (service *Service) DeleteOne(ctx context.Context, guildID, channelID string
 	}
 
 	_ = service.delCache(ctx, guildID, channelID)
-	fmt.Printf("del cache do DeleteOne: %v\n", err)
-
 	return result, err
 }
 
@@ -120,11 +112,8 @@ func (service *Service) ObtainAll(ctx context.Context, guildID string) ([]domain
 		service.getAllCacheKey(guildID),
 		&cached,
 	); err == nil && found {
-		fmt.Printf("get cache do ObtainAll: %v\n", cached)
 		return cached, nil
 	}
-
-	fmt.Println("no cache found in ObtainOne")
 
 	result, err := service.autoreactions.GetAll(ctx, guildID)
 	if err != nil {
@@ -140,7 +129,5 @@ func (service *Service) ObtainAll(ctx context.Context, guildID string) ([]domain
 		service.getAllCacheKey(guildID),
 		result,
 	)
-	fmt.Printf("set cache do ObtainAll: %v\n", err)
-
 	return result, nil
 }
