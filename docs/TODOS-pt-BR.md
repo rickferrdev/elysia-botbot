@@ -11,6 +11,7 @@
 - [X] **Diferenciação entre criação e atualização de embeds:** No repositório/serviço de embeds, utilizar `CreateOne` quando `id == 0` e `UpsertOne` quando `id > 0`, garantindo a correta geração de chave autoincrement no SQLite.
 - [X] **Listagem de incorporações (`GetAll`):** Expor a consulta de todas as incorporações de um servidor no serviço de embeds e adicionar a opção correspondente no menu de seleção de `/embeds`.
 - [X] **Listagem de autorreações (`GetAll`):** Expor a consulta de todas as autorreações de um servidor no serviço de autorreações e adicionar a opção correspondente no menu de seleção de `/autoreactions`.
+- [X] **Fluxo de upsert e atualização completa em autorreações:** Ajustar o tratamento de conflito em `CreateOne` para realizar upsert (atualizando emoji em caso de canal já cadastrado) e transformar `UpdateOne` em atualização completa (tipo e emoji) permitindo upsert, alinhando os schemas outbound e os fluxos dos comandos em inbound.
 
 ### Pendentes
 - [ ] **Cache em memória para autorreações:** Implementar cache local das autorreações ativas para reduzir a frequência de consultas ao banco SQLite no evento `AutoReactionsMessageCreate`.

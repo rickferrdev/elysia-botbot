@@ -56,7 +56,10 @@ func New(FxArgs FxArgs) (*Database, error) {
 func (database *Database) CreateOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error) {
 	schema := NewSchemaEmbeds(embed)
 
-	_, err := database.sqlite.DB.NewInsert().Model(schema).Returning("*").Exec(ctx)
+	_, err := database.sqlite.DB.
+		NewInsert().
+		Model(schema).
+		Returning("*").Exec(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
@@ -67,7 +70,13 @@ func (database *Database) CreateOne(ctx context.Context, embed domain.Embed) (*d
 func (database *Database) UpsertOne(ctx context.Context, embed domain.Embed) (*domain.Embed, error) {
 	schema := NewSchemaEmbeds(embed)
 
-	_, err := database.sqlite.DB.NewInsert().Model(schema).On("CONFLICT (id) DO UPDATE").Set("content = ?", embed.Content).Returning("*").Exec(ctx)
+	_, err := database.sqlite.DB.
+		NewInsert().
+		Model(schema).
+		On("CONFLICT (id) DO UPDATE").
+		Set("content = EXCLUDED.content").
+		Returning("*").
+		Exec(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
@@ -78,7 +87,11 @@ func (database *Database) UpsertOne(ctx context.Context, embed domain.Embed) (*d
 func (database *Database) DeleteOne(ctx context.Context, id int) (*domain.Embed, error) {
 	var schema SchemaEmbed
 
-	err := database.sqlite.DB.NewDelete().Model(&schema).Where("id = ?", id).Returning("*").Scan(ctx)
+	err := database.sqlite.DB.NewDelete().
+		Model(&schema).
+		Where("id = ?", id).
+		Returning("*").
+		Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
@@ -89,7 +102,10 @@ func (database *Database) DeleteOne(ctx context.Context, id int) (*domain.Embed,
 func (database *Database) GetOne(ctx context.Context, id int) (*domain.Embed, error) {
 	var schema SchemaEmbed
 
-	err := database.sqlite.DB.NewSelect().Model(&schema).Where("id = ?", id).Scan(ctx)
+	err := database.sqlite.DB.NewSelect().
+		Model(&schema).
+		Where("id = ?", id).
+		Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
@@ -100,7 +116,10 @@ func (database *Database) GetOne(ctx context.Context, id int) (*domain.Embed, er
 func (database *Database) GetAll(ctx context.Context, guildID string, authorID string) ([]domain.Embed, error) {
 	var schemas []SchemaEmbed
 
-	err := database.sqlite.DB.NewSelect().Model(&schemas).Where("guild_id = ? && author_id = ?", guildID, authorID).Scan(ctx)
+	err := database.sqlite.DB.NewSelect().
+		Model(&schemas).
+		Where("guild_id = ? && author_id = ?", guildID, authorID).
+		Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
