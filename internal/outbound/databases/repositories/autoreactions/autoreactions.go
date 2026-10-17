@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/sqlite"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/sqliteclient"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"go.uber.org/fx"
 )
@@ -13,12 +13,13 @@ var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
 
 type (
 	Database struct {
-		sqlite *sqlite.SqliteClient
+		sqlite *sqliteclient.SqliteClient
 	}
 
-	Params struct {
+	FxArgs struct {
 		fx.In
-		SqliteClient *sqlite.SqliteClient
+
+		SqliteClient *sqliteclient.SqliteClient
 	}
 )
 
@@ -30,9 +31,9 @@ type Interface interface {
 	GetAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error)
 }
 
-func New(params Params) (*Database, error) {
+func New(FxArgs FxArgs) (*Database, error) {
 	database := Database{
-		sqlite: params.SqliteClient,
+		sqlite: FxArgs.SqliteClient,
 	}
 
 	models := []any{
@@ -40,7 +41,7 @@ func New(params Params) (*Database, error) {
 	}
 
 	for _, model := range models {
-		_, err := params.SqliteClient.DB.NewCreateTable().
+		_, err := FxArgs.SqliteClient.DB.NewCreateTable().
 			Model(model).
 			IfNotExists().
 			Exec(context.Background())
@@ -65,10 +66,12 @@ func (database *Database) CreateOne(ctx context.Context, autoreactions domain.Au
 
 func (database *Database) GetOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
 	var schema SchemaAutoReactions
+
 	err := database.sqlite.DB.NewSelect().Model(&schema).Where("channel_id = ? AND guild_id = ?", channelID, guildID).Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
+
 	return schema.NewDomainAutoReactions(), nil
 }
 
@@ -90,18 +93,22 @@ func (database *Database) GetAll(ctx context.Context, guildID string) ([]domain.
 
 func (database *Database) UpdateOne(ctx context.Context, guildID, channelID, emoji string) (*domain.AutoReactions, error) {
 	var schema SchemaAutoReactions
+
 	err := database.sqlite.DB.NewUpdate().Model(&schema).Set("emoji = ?", emoji).Where("channel_id = ? AND guild_id = ?", channelID, guildID).Returning("*").Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
+
 	return schema.NewDomainAutoReactions(), nil
 }
 
 func (database *Database) DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
 	var schema SchemaAutoReactions
+
 	err := database.sqlite.DB.NewDelete().Model(&schema).Where("channel_id = ? AND guild_id = ?", channelID, guildID).Returning("*").Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
+
 	return schema.NewDomainAutoReactions(), nil
 }

@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/sqlite"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/sqliteclient"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"github.com/uptrace/bun"
 	"go.uber.org/fx"
@@ -15,7 +15,7 @@ import (
 var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
 
 type Database struct {
-	sqlite *sqlite.SqliteClient
+	sqlite *sqliteclient.SqliteClient
 }
 
 type Interface interface {
@@ -23,14 +23,15 @@ type Interface interface {
 	CreateServerWithConfig(ctx context.Context, server domain.Server) error
 }
 
-type Params struct {
+type FxArgs struct {
 	fx.In
-	SqliteClient *sqlite.SqliteClient
+
+	SqliteClient *sqliteclient.SqliteClient
 }
 
-func New(params Params) (*Database, error) {
+func New(FxArgs FxArgs) (*Database, error) {
 	database := Database{
-		sqlite: params.SqliteClient,
+		sqlite: FxArgs.SqliteClient,
 	}
 
 	models := []any{
@@ -39,7 +40,7 @@ func New(params Params) (*Database, error) {
 	}
 
 	for _, model := range models {
-		_, err := params.SqliteClient.DB.NewCreateTable().
+		_, err := FxArgs.SqliteClient.DB.NewCreateTable().
 			Model(model).
 			IfNotExists().
 			Exec(context.Background())
@@ -61,19 +62,23 @@ func (database *Database) CreateServerWithConfig(
 
 	err := database.sqlite.DB.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
 		serverSchema := NewSchemaServer(&server)
+
 		if _, err := tx.NewInsert().Model(serverSchema).On("CONFLICT (guild_id) DO NOTHING").Exec(ctx); err != nil {
 			return err
 		}
 
 		configSchema := NewSchemaConfig(server.Config)
+
 		if _, err := tx.NewInsert().Model(configSchema).On("CONFLICT (guild_id) DO UPDATE").Set("prefix = EXCLUDED.prefix").Exec(ctx); err != nil {
 			return err
 		}
+
 		return nil
 	})
 	if err != nil {
 		return repoerrors.TranslateSqliteError(err)
 	}
+
 	return nil
 }
 
