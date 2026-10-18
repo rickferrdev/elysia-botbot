@@ -2,6 +2,7 @@ package responder
 
 import (
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/discord-go/discord.go/bot"
@@ -25,6 +26,7 @@ type (
 
 	Interface interface {
 		Sender(ctx *bot.InteractionContext, responder interactions.InteractionCallbackData, cause error)
+		SenderContent(ctx *bot.MessageContext, content Content, cause error)
 	}
 
 	ResponderCode    int
@@ -45,10 +47,9 @@ const (
 	CodeServiceUnavailable
 )
 
-type Definition struct {
+type Content struct {
 	Title       string
 	Description string
-	Color       ResponderColor
 }
 
 const (
@@ -177,6 +178,47 @@ func WithEmbed(embed messages.Embed) interactions.InteractionCallbackData {
 	}
 }
 
+func WithContent(title, description string) Content {
+	return Content{
+		Title:       title,
+		Description: description,
+	}
+}
+
+func WithCodeContent(code ResponderCode) Content {
+	value, ok := embeds[code]
+	if !ok {
+		value = WithInternal.Embeds[0]
+	}
+
+	return Content{
+		Title:       value.Title,
+		Description: value.Description,
+	}
+}
+
+func (service *Service) SenderContent(ctx *bot.MessageContext, content Content, cause error) {
+	if cause != nil {
+		slog.Error("response cause", slog.String("cause", cause.Error()))
+	}
+	if ctx == nil {
+		service.Logger.Error("cannot send interaction message context response: context is nil")
+		return
+	}
+
+	var text strings.Builder
+	text.WriteString(content.Title)
+	if content.Description != "" {
+		text.WriteString("\n")
+		text.WriteString(content.Description)
+	}
+
+	if _, err := ctx.Reply(text.String()); err != nil {
+		service.Logger.Error("failed to send message reply", slog.String("error", err.Error()))
+		return
+	}
+}
+
 func (service *Service) Sender(ctx *bot.InteractionContext, responder interactions.InteractionCallbackData, cause error) {
 	if cause != nil {
 		slog.Error("response cause", slog.String("cause", cause.Error()))
@@ -186,19 +228,21 @@ func (service *Service) Sender(ctx *bot.InteractionContext, responder interactio
 		return
 	}
 
-	for index, values := range responder.Embeds {
-		if err := values.Validate(); err != nil {
-			responder.Embeds[index] = messages.Embed{}
-			service.Logger.ErrorContext(
-				ctx.Context(),
-				"invalid embed in response",
-				slog.Int("index", index), slog.String("cause", cause.Error()),
-			)
-			return
-		}
+	if len(responder.Embeds) > 0 {
+		for index, values := range responder.Embeds {
+			if err := values.Validate(); err != nil {
+				responder.Embeds[index] = messages.Embed{}
+				attrs := []any{slog.Int("index", index)}
+				if cause != nil {
+					attrs = append(attrs, slog.String("cause", cause.Error()))
+				}
+				service.Logger.ErrorContext(ctx.Context(), "invalid embed in response", attrs...)
+				return
+			}
 
-		// used in all embeds
-		values.Timestamp = time.Now().Format(time.RFC3339)
+			// used in all embeds
+			values.Timestamp = time.Now().Format(time.RFC3339)
+		}
 	}
 
 	switch {

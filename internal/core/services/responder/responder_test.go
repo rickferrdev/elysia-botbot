@@ -69,7 +69,26 @@ func TestSender_NilContext(t *testing.T) {
 	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	service := responder.New(responder.FxArgs{Logger: discardLogger})
 
-	// Ensure Sender handles nil context safely without panic
 	service.Sender(nil, responder.WithOk, nil)
 	service.Sender(nil, responder.WithInternal, errors.New("database failure"))
+	service.SenderContent(nil, responder.WithCodeContent(responder.CodeInternal), errors.New("db"))
+}
+
+func TestWithCodeContent(t *testing.T) {
+	got := responder.WithCodeContent(responder.CodeInternal)
+	if got.Title == "" || got.Description == "" {
+		t.Fatal("expected title and description from known code")
+	}
+	fallback := responder.WithCodeContent(responder.ResponderCode(999))
+	internal := responder.WithCodeContent(responder.CodeInternal)
+	if fallback.Title != internal.Title {
+		t.Fatalf("unknown code should fall back to internal, got %q", fallback.Title)
+	}
+}
+
+func TestWithContent(t *testing.T) {
+	got := responder.WithContent("hi", "there")
+	if got.Title != "hi" || got.Description != "there" {
+		t.Fatalf("unexpected content: %+v", got)
+	}
 }
