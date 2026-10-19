@@ -9,9 +9,9 @@ type SchemaFunSlipper struct {
 	bun.BaseModel `bun:"table:fun_slippers"`
 	ID            int `bun:"id,pk,autoincrement"`
 
-	GuildID string `bun:"guild_id,notnull,unique:guild_user"`
-	UserID  string `bun:"user_id,notnull,unique:guild_user"`
-	Count   int    `bun:"count,notnull"`
+	GuildID string `bun:"guild_id,notnull,unique:composite"`
+	UserID  string `bun:"user_id,notnull,unique:composite"`
+	Count   int    `bun:"count,notnull,default:1"`
 }
 
 func NewSchemaFunSplipper(funslipper domain.FunSlipper) *SchemaFunSlipper {

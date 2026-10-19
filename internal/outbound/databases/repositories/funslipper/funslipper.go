@@ -51,15 +51,12 @@ func New(FxArgs FxArgs) (*Database, error) {
 
 func (database *Database) IncrementCount(ctx context.Context, funslipper domain.FunSlipper) (*domain.FunSlipper, error) {
 	schema := NewSchemaFunSplipper(funslipper)
-	if schema.Count == 0 {
-		schema.Count = 1
-	}
-	_, err := database.sqlite.DB.NewInsert().
+	err := database.sqlite.DB.NewInsert().
 		Model(schema).
-		On("CONFLICT (guild_id, user_id) DO UPDATE").
+		On("CONFLICT (user_id, guild_id) DO UPDATE").
 		Set("count = count + 1").
 		Returning("*").
-		Exec(ctx)
+		Scan(ctx)
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}
