@@ -1,0 +1,14 @@
+- model: SchemaAutoReactions
+  rows:
+    - _id: one
+      id: 1
+      guild_id: one
+      channel_id: channel_one
+      type: attachment
+      emoji: "👍"
+    - _id: two
+      id: 2
+      guild_id: one
+      channel_id: channel_two
+      type: message
+      emoji: "👎"

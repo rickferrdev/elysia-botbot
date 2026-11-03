@@ -1,0 +1,7 @@
+- model: SchemaSlipper
+  rows:
+    - _id: one
+      id: 1
+      guild_id: one
+      user_id: user_one
+      inventory: 10

@@ -2,12 +2,10 @@ package autoreactions
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/channels"
 	"github.com/discord-go/discord.go/components"
-	"github.com/discord-go/discord.go/messages"
 	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/users"
 	"github.com/google/uuid"
@@ -15,6 +13,7 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/autoreactions"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
+	"github.com/rickferrdev/elysia-botbot/internal/inbound/interactions/resembeds"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
 	"go.uber.org/fx"
 )
@@ -224,28 +223,15 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 			cmd.responder.Sender(interaction, responder.WithConflict, err)
 			return
 		}
+
 		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
 
-	embeder := messages.NewEmbedBuilder().
-		SetTitle("⋆. 𐙚˚࿔ Criação de AutoReaction 𝜗𝜚˚⋆").
-		SetThumbnail(ctx.Bot.User().
-			DisplayAvatarURL(users.AvatarURLOptions{})).
-		SetColor(0xB4E4D6).
-		SetTimestampNow()
+	thumbnail := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
+	embed := resembeds.EmbedCreateAutoReaction(thumbnail, *result)
 
-	fields := map[string]string{
-		"── .✦ Tipo de monitoramento:": fmt.Sprintf("`%v`", result.Type),
-		"⋆˚꩜｡ Canal registrado:":       fmt.Sprintf("<#%v>", result.ChannelID),
-		"⋆˚꩜｡ Emoji:":                  fmt.Sprintf("%v", result.Emoji),
-	}
-
-	for index, value := range fields {
-		embeder.AddField(index, value, false)
-	}
-
-	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
+	cmd.responder.Sender(interaction, responder.WithEmbed(embed), nil)
 }
 
 func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
@@ -269,34 +255,25 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 
 	channelID := interaction.Values()[0]
 
-	result, err := cmd.autoreactions.ObtainOne(interaction.Context(), interaction.Guild.ID.String(), channelID)
+	result, err := cmd.autoreactions.ObtainOne(
+		interaction.Context(),
+		interaction.Guild.ID.String(),
+		channelID,
+	)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrNotFound) {
 			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
+
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
 
-	embeder := messages.NewEmbedBuilder().
-		SetTitle("⋆. 𐙚˚࿔ Obter uma AutoReaction 𝜗𝜚˚⋆").
-		SetThumbnail(ctx.Bot.User().
-			DisplayAvatarURL(users.AvatarURLOptions{})).
-		SetColor(0xB4E4D6).
-		SetTimestampNow()
+	thumbnail := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
+	embed := resembeds.EmbedObtainAutoReaction(thumbnail, *result)
 
-	fields := map[string]string{
-		"── .✦ Tipo de monitoramento:": fmt.Sprintf("`%v`", result.Type),
-		"⋆˚꩜｡ Canal registrado:":       fmt.Sprintf("<#%v>", result.ChannelID),
-		"⋆˚꩜｡ Emoji:":                  fmt.Sprintf("%v", result.Emoji),
-	}
-
-	for index, value := range fields {
-		embeder.AddField(index, value, false)
-	}
-
-	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
+	cmd.responder.Sender(interaction, responder.WithEmbed(embed), nil)
 }
 
 func (cmd *Command) ObtainAll(ctx *bot.InteractionContext) {
@@ -311,26 +288,15 @@ func (cmd *Command) ObtainAll(ctx *bot.InteractionContext) {
 			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
+
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
 		return
 	}
 
-	embeder := messages.NewEmbedBuilder().
-		SetTitle("⋆. 𐙚˚࿔ Obter todas AutoReactions 𝜗𝜚˚⋆").
-		SetThumbnail(ctx.Bot.User().
-			DisplayAvatarURL(users.AvatarURLOptions{})).
-		SetColor(0xB4E4D6).
-		SetTimestampNow()
+	thumbnail := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
+	embed := resembeds.EmbedObtainAllAutoReactions(thumbnail, data)
 
-	for _, value := range data {
-		embeder.AddField(
-			fmt.Sprintf("<#%v> -> %v", value.ChannelID, value.Emoji),
-			fmt.Sprintf("Tipo de monitoramento: `%v`", value.Type),
-			false,
-		)
-	}
-
-	cmd.responder.Sender(ctx, responder.WithEmbed(embeder.Build()), nil)
+	cmd.responder.Sender(ctx, responder.WithEmbed(embed), nil)
 }
 
 func (cmd *Command) Update(ctx *bot.InteractionContext) {
@@ -419,28 +385,15 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
+
 		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
 
-	embeder := messages.NewEmbedBuilder().
-		SetTitle("⋆. 𐙚˚࿔ Atualizar uma AutoReaction 𝜗𝜚˚⋆").
-		SetThumbnail(ctx.Bot.User().
-			DisplayAvatarURL(users.AvatarURLOptions{})).
-		SetColor(0xB4E4D6).
-		SetTimestampNow()
+	thumbnail := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
+	embed := resembeds.EmbedUpdateAutoReaction(thumbnail, *result)
 
-	fields := map[string]string{
-		"── .✦ Tipo de monitoramento:": fmt.Sprintf("`%v`", result.Type),
-		"⋆˚꩜｡ Canal registrado:":       fmt.Sprintf("<#%v>", result.ChannelID),
-		"⋆˚꩜｡ Emoji:":                  fmt.Sprintf("%v", result.Emoji),
-	}
-
-	for index, value := range fields {
-		embeder.AddField(index, value, false)
-	}
-
-	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
+	cmd.responder.Sender(interaction, responder.WithEmbed(embed), nil)
 }
 
 func (cmd *Command) Delete(ctx *bot.InteractionContext) {
@@ -468,32 +421,23 @@ func (cmd *Command) Delete(ctx *bot.InteractionContext) {
 
 	channelID := interaction.Values()[0]
 
-	result, err := cmd.autoreactions.DeleteOne(interaction.Context(), interaction.Guild.ID.String(), channelID)
+	result, err := cmd.autoreactions.DeleteOne(
+		interaction.Context(),
+		interaction.Guild.ID.String(),
+		channelID,
+	)
 	if err != nil {
 		if errors.Is(err, autoreactions.ErrNotFound) {
 			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
+
 		cmd.responder.Sender(interaction, responder.WithInternal, err)
 		return
 	}
 
-	embeder := messages.NewEmbedBuilder().
-		SetTitle("⋆. 𐙚˚࿔ Deletar uma AutoReaction 𝜗𝜚˚⋆").
-		SetThumbnail(ctx.Bot.User().
-			DisplayAvatarURL(users.AvatarURLOptions{})).
-		SetColor(0xB4E4D6).
-		SetTimestampNow()
+	thumbnail := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
+	embed := resembeds.EmbedDeleteAutoReaction(thumbnail, *result)
 
-	fields := map[string]string{
-		"── .✦ Tipo de monitoramento:": fmt.Sprintf("`%v`", result.Type),
-		"⋆˚꩜｡ Canal registrado:":       fmt.Sprintf("<#%v>", result.ChannelID),
-		"⋆˚꩜｡ Emoji:":                  fmt.Sprintf("%v", result.Emoji),
-	}
-
-	for index, value := range fields {
-		embeder.AddField(index, value, false)
-	}
-
-	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
+	cmd.responder.Sender(interaction, responder.WithEmbed(embed), nil)
 }

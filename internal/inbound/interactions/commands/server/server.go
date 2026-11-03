@@ -2,11 +2,9 @@ package server
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/discord-go/discord.go/bot"
 	"github.com/discord-go/discord.go/components"
-	"github.com/discord-go/discord.go/messages"
 	"github.com/discord-go/discord.go/permissions"
 	"github.com/discord-go/discord.go/users"
 	"github.com/google/uuid"
@@ -14,6 +12,7 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/server"
+	"github.com/rickferrdev/elysia-botbot/internal/inbound/interactions/resembeds"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
 	"go.uber.org/fx"
 )
@@ -80,7 +79,7 @@ func (cmd *Command) ServerSetup(ctx *bot.InteractionContext, router *bot.Router)
 				Build(),
 			components.NewSelectOptionBuilder().
 				SetLabel("Criar/Atualizar configurações").
-				SetValue("upsert").
+				SetValue("create").
 				SetDescription("Criar ou atualizar as configurações do servidor").
 				Build(),
 		}, components.NewStringSelectMenuBuilder().
@@ -99,7 +98,7 @@ func (cmd *Command) ServerSetup(ctx *bot.InteractionContext, router *bot.Router)
 	case "obtain":
 		cmd.Obtain(interaction)
 		return
-	case "upsert":
+	case "create":
 		cmd.Create(interaction)
 		return
 	default:
@@ -113,6 +112,7 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 		return
 	}
 
+	avatar := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
 	data, err := cmd.server.ObtainServerWithConfig(ctx.Context(), ctx.Guild.ID.String())
 	if err != nil {
 		if errors.Is(err, server.ErrNotFound) {
@@ -123,33 +123,20 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 		return
 	}
 	if data.Config == nil {
-		// TODO: atualizar para nova assinatura do responder (WithSimpleCustomMessage não existe mais)
-		// cmd.responder.Sender(responder.WithSimpleCustomMessage(ctx, "Solicite a configuração do servidor antes.", "", nil))
+		embed := resembeds.EmbedInvalidConfigServer(avatar)
+		cmd.responder.Sender(ctx, responder.WithEmbed(embed), nil)
 		return
 	}
 
-	embeder := messages.NewEmbedBuilder().
-		SetTitle("⋆. 𐙚˚࿔ Configurações do Servidor 𝜗𝜚˚⋆").
-		SetThumbnail(ctx.Bot.User().
-			DisplayAvatarURL(users.AvatarURLOptions{})).
-		SetColor(0xB4E4D6).
-		SetTimestampNow()
+	embed := resembeds.EmbedConfigurationsServer(ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{}), *data)
+	cmd.responder.Sender(ctx, responder.WithEmbed(embed), nil)
 
-	fields := map[string]string{
-		"ִ ࣪𖤐 Identificador do Servidor:": fmt.Sprintf("**%v**", data.GuildID),
-		"ִ ࣪𖤐 Prefixo do Elysia-BotBot:":  fmt.Sprintf("`%v`", data.Config.Prefix),
-	}
-
-	for index, value := range fields {
-		embeder.AddField(index, value, false)
-	}
-
-	cmd.responder.Sender(ctx, responder.WithEmbed(embeder.Build()), nil)
 }
 
 func (cmd *Command) Create(ctx *bot.InteractionContext) {
 	inputID := uuid.NewString()
 	modalID := uuid.NewString()
+	avatar := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
 	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx,
 		components.NewTextInputBuilder().
 			SetCustomID(inputID).
@@ -171,13 +158,15 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 		return
 	}
 
-	err = cmd.server.CreateServerWithConfig(interaction.Context(), domain.Server{
+	newServer := domain.Server{
 		GuildID: interaction.Guild.ID.String(),
 		Config: &domain.Config{
 			GuildID: interaction.Guild.ID.String(),
 			Prefix:  interaction.ModalValue(inputID),
 		},
-	})
+	}
+
+	err = cmd.server.CreateServerWithConfig(interaction.Context(), newServer)
 	if err != nil {
 		if errors.Is(err, server.ErrConflict) {
 			cmd.responder.Sender(ctx, responder.WithConflict, err)
@@ -187,20 +176,6 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 		return
 	}
 
-	embeder := messages.NewEmbedBuilder().
-		SetTitle("⋆. 𐙚˚࿔ Configurações do Servidor 𝜗𝜚˚⋆").
-		SetThumbnail(ctx.Bot.User().
-			DisplayAvatarURL(users.AvatarURLOptions{})).
-		SetColor(0xB4E4D6).
-		SetTimestampNow()
-
-	fields := map[string]string{
-		"ִ ࣪𖤐 Prefixo do Elysia-BotBot:": fmt.Sprintf("`%v`", interaction.ModalValue(inputID)),
-	}
-
-	for index, value := range fields {
-		embeder.AddField(index, value, false)
-	}
-
-	cmd.responder.Sender(interaction, responder.WithEmbed(embeder.Build()), nil)
+	embed := resembeds.EmbedConfigurationsServer(avatar, newServer)
+	cmd.responder.Sender(ctx, responder.WithEmbed(embed), nil)
 }

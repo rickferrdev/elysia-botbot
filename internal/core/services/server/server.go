@@ -7,7 +7,7 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
-	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/server"
+	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbservers"
 	"go.uber.org/fx"
 )
 
@@ -15,13 +15,13 @@ var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
 
 type (
 	Service struct {
-		storage server.Interface
+		storage dbservers.Interface
 	}
 
 	FxArgs struct {
 		fx.In
 
-		ServerStorage server.Interface
+		ServerStorage dbservers.Interface
 	}
 )
 
@@ -39,7 +39,7 @@ func New(FxArgs FxArgs) *Service {
 }
 
 func (service *Service) CreateServerWithConfig(ctx context.Context, server domain.Server) error {
-	err := service.storage.CreateServerWithConfig(ctx, server)
+	_, err := service.storage.CreateServerWithConfig(ctx, server)
 	if core.IsCode(err, repoerrors.CodeSqlConflict) {
 		return fmt.Errorf("%w: %w", ErrConflict, err)
 	}

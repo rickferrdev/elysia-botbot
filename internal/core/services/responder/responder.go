@@ -114,44 +114,34 @@ var embeds = map[ResponderCode]messages.Embed{
 
 var sends = map[ResponderCode]interactions.InteractionCallbackData{
 	CodeOK: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeOK]},
+		Embeds: []messages.Embed{embeds[CodeOK]},
 	},
 	CodeCreated: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeCreated]},
+		Embeds: []messages.Embed{embeds[CodeCreated]},
 	},
 	CodeNoContent: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeNoContent]},
+		Embeds: []messages.Embed{embeds[CodeNoContent]},
 	},
 	CodeBadArguments: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeBadArguments]},
+		Embeds: []messages.Embed{embeds[CodeBadArguments]},
 	},
 	CodeUnauthorized: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeUnauthorized]},
+		Embeds: []messages.Embed{embeds[CodeUnauthorized]},
 	},
 	CodeForbidden: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeForbidden]},
+		Embeds: []messages.Embed{embeds[CodeForbidden]},
 	},
 	CodeNotFound: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeNotFound]},
+		Embeds: []messages.Embed{embeds[CodeNotFound]},
 	},
 	CodeConflict: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeConflict]},
+		Embeds: []messages.Embed{embeds[CodeConflict]},
 	},
 	CodeInternal: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeInternal]},
+		Embeds: []messages.Embed{embeds[CodeInternal]},
 	},
 	CodeServiceUnavailable: {
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embeds[CodeServiceUnavailable]},
+		Embeds: []messages.Embed{embeds[CodeServiceUnavailable]},
 	},
 }
 
@@ -173,8 +163,7 @@ func New(args FxArgs) *Service {
 
 func WithEmbed(embed messages.Embed) interactions.InteractionCallbackData {
 	return interactions.InteractionCallbackData{
-		Content: "‎. ݁⋆ ۶ৎ ݁˖ . ݁",
-		Embeds:  []messages.Embed{embed},
+		Embeds: []messages.Embed{embed},
 	}
 }
 
@@ -247,13 +236,17 @@ func (service *Service) Sender(ctx *bot.InteractionContext, responder interactio
 
 	switch {
 	case ctx.Deferred(), ctx.Replied():
-		if _, err := ctx.EditReplyComplex(rest.EditMessageParams{
-			Content:     &responder.Content,
-			Embeds:      &responder.Embeds,
-			Components:  &responder.Components,
-			Attachments: &ctx.Message.Attachments,
-			Flags:       &responder.Flags,
-		}); err != nil {
+		params := rest.EditMessageParams{
+			Content:    &responder.Content,
+			Embeds:     &responder.Embeds,
+			Components: &responder.Components,
+			Flags:      &responder.Flags,
+		}
+		// TODO!
+		// if ctx.Message != nil {
+		// 	params.Attachments = ctx.Message.Attachments
+		// }
+		if _, err := ctx.EditReplyComplex(params); err != nil {
 			service.Logger.Error("failed to edit interaction reply", slog.String("error", err.Error()))
 		}
 	default:

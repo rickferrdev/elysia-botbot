@@ -8,7 +8,7 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/redisclient"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
-	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/autoreactions"
+	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbautoreactions"
 	"go.uber.org/fx"
 )
 
@@ -17,14 +17,14 @@ var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
 type (
 	Service struct {
 		redis         *redisclient.RedisClient
-		autoreactions autoreactions.Interface
+		autoreactions dbautoreactions.Interface
 	}
 
 	FxArgs struct {
 		fx.In
 
 		RedisClient     *redisclient.RedisClient
-		AutoReactionsDB autoreactions.Interface
+		AutoReactionsDB dbautoreactions.Interface
 	}
 )
 
