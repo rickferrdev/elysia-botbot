@@ -1,28 +1,23 @@
  <div align="center">
 
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:07130D,50:123D2A,100:2EA66B&height=180&section=header&text=Elysia-BotBot&fontSize=52&fontColor=E8FFF0&fontAlignY=38&desc=Discord%20Bot%20%E2%80%A2%20Built%20with%20Go&descSize=17&descAlignY=60&animation=fadeIn" width="100%" alt="ElysiaBotBot — Discord Bot built with Go" />
+   <img src="https://capsule-render.vercel.app/api?type=waving&color=0:07130D,45:123D2A,100:2EA66B&height=200&section=header&text=ELYSIA-BOTBOT&fontSize=54&fontColor=E8FFF0&fontAlignY=38&desc=SEU%20SERVIDOR%2C%20SUA%20VIBE&descSize=16&descAlignY=60&animation=fadeIn" width="100%" alt="Elysia-BotBot — seu servidor, sua vibe" />
 
-  <a href="https://github.com/rickferrdev/elysia-botbot">
-    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=16&duration=2800&pause=900&color=52D991&center=true&vCenter=true&width=600&lines=Building+more+than+a+Discord+bot.;Learning+Go+through+real+software.;Clean+code.+Thoughtful+architecture.;One+commit+at+a+time." alt="Mensagens animadas sobre o projeto" />
-  </a>
+   <a href="https://github.com/rickferrdev/elysia-botbot">
+     <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=16&duration=2600&pause=850&color=52D991&center=true&vCenter=true&width=650&lines=Templates+que+d%C3%A3o+vida+ao+seu+servidor.;Tomates,+chinelos+e+uma+lojinha.;Feito+em+Go.+Pronto+para+o+Discord." alt="Templates, uma economia divertida de tomates e ferramentas para Discord feitas em Go" />
+   </a>
 
-  <p>
-    <strong>Um projeto de estudo com mentalidade de produto.</strong><br/>
-    Explorando arquitetura backend, boas práticas e desenvolvimento em Go.
-  </p>
+   <p>
+     <a href="#funcionalidades"><img src="https://img.shields.io/badge/EXPLORE-Funcionalidades-239B56?style=for-the-badge&logo=sparkles&logoColor=white" alt="Explore as funcionalidades"/></a>
+     <a href="#tecnologias"><img src="https://img.shields.io/badge/FEITO_COM-Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Feito com Go"/></a>
+     <a href="#começando"><img src="https://img.shields.io/badge/COMECE-Guia_rápido-276749?style=for-the-badge&logo=rocket&logoColor=white" alt="Comece pelo guia rápido"/></a>
+   </p>
 
-  <p>
-    <a href="#-funcionalidades"><img src="https://img.shields.io/badge/Features-Explore-239B56?style=for-the-badge" alt="Funcionalidades"/></a>
-    <a href="#-tecnologias"><img src="https://img.shields.io/badge/Stack-Go%20%7C%20Redis%20%7C%20SQLite-183D2B?style=for-the-badge" alt="Tecnologias"/></a>
-    <a href="#-começando"><img src="https://img.shields.io/badge/Getting_Started-Quickstart-276749?style=for-the-badge" alt="Começando"/></a>
-  </p>
-
-  <p>
-    <img src="https://img.shields.io/badge/Go-Backend-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go"/>
-    <img src="https://img.shields.io/badge/Discord-Bot-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"/>
-    <img src="https://img.shields.io/badge/Redis-Cache-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis"/>
-    <img src="https://img.shields.io/badge/SQLite-Database-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite"/>
-  </p>
+   <p>
+     <img src="https://img.shields.io/badge/DISCORD-Bot-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Bot para Discord"/>
+     <img src="https://img.shields.io/badge/REDIS-Cache-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Cache com Redis"/>
+     <img src="https://img.shields.io/badge/SQLITE-Persist%C3%AAncia-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="Persistência com SQLite"/>
+     <img src="https://img.shields.io/badge/TOMATE_E_CHINELO-Economia_divertida-2EA66B?style=flat-square" alt="Economia de tomates e chinelos"/>
+   </p>
 
 </div>
 
@@ -36,7 +31,7 @@ Um bot para Discord desenvolvido em Go, criado como um projeto de estudo com foc
 O **ElysiaBotBot** reúne funcionalidades para servidores Discord em uma aplicação estruturada para facilitar a manutenção, a evolução e a compreensão do código. Mais do que construir um bot, a proposta é explorar como desenvolver e organizar uma aplicação backend em Go utilizando ferramentas e padrões presentes em projetos reais.
 
 > [!NOTE]
-> O projeto é mantido com objetivos educacionais e de aprendizado prático. A versão `1.0.0` representa a conclusão de uma etapa de estabilização, correções e refatorações.
+> O projeto é mantido com objetivos educacionais e de aprendizado prático. A versão `2.0.0` introduz uma atualização incompatível com versões anteriores, com templates reutilizáveis e uma nova economia de tomates e chinelos.
 
 ## Objetivos
 
@@ -54,11 +49,16 @@ O projeto reúne funcionalidades voltadas à configuração e à personalizaçã
 - [x] Estrutura para comandos e eventos do Discord.
 - [x] Configurações específicas por servidor.
 - [x] Sistema de autorreações.
-- [x] Suporte a embeds.
+- [x] Templates reutilizáveis para mensagens.
+- [x] Comandos divertidos, incluindo `/humiliator` e `/bestchoice`.
+- [x] Saldos de tomates e chinelos, com uma loja para trocar 5 chinelos por 1 tomate.
 - [x] Persistência de dados com SQLite.
 - [x] Integração com Redis para operações de cache.
 
-A disponibilidade e o comportamento de cada funcionalidade dependem da implementação presente na versão publicada.
+### Alterações incompatíveis na versão 2.0.0
+
+- Os comandos antigos `/embeds` e `/bestphoto` foram substituídos por `/templates` e `/bestchoice`.
+- Os dados das tabelas antigas `embeds` e `fun_slippers` não são migrados. Faça backup dos dados necessários antes de atualizar.
 
 ## Tecnologias
 
