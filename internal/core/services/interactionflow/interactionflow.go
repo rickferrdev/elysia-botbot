@@ -20,6 +20,7 @@ type Interface interface {
 	AwaitStringSelect(interaction *bot.InteractionContext, options []components.SelectOption, selectMenu components.StringSelect) (*bot.InteractionContext, error)
 	AwaitSimpleTextModal(interaction *bot.InteractionContext, textInput components.TextInput, modalData components.ModalData) (*bot.InteractionContext, error)
 	AwaitChannelSelect(interaction *bot.InteractionContext, selectMenu components.ChannelSelect) (*bot.InteractionContext, error)
+	AwaitUserSelect(interaction *bot.InteractionContext, selectUser components.UserSelect) (*bot.InteractionContext, error)
 }
 
 func New() *Service {
@@ -91,6 +92,29 @@ func (service *Service) AwaitChannelSelect(interaction *bot.InteractionContext, 
 
 	selected, err := interaction.Bot.AwaitInteraction(timeout, func(ic *bot.InteractionContext) bool {
 		return ic.CustomID() == selectMenu.CustomID &&
+			ic.User().ID == interaction.User().ID
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return selected, nil
+}
+
+func (service *Service) AwaitUserSelect(interaction *bot.InteractionContext, selectUser components.UserSelect) (*bot.InteractionContext, error) {
+	row := components.NewActionRowBuilder().AddComponents(selectUser).Build()
+
+	if _, err := interaction.EditReplyComplex(rest.EditMessageParams{
+		Components: &[]components.Component{row},
+	}); err != nil {
+		return nil, err
+	}
+
+	timeout, cancel := context.WithTimeout(interaction.Context(), 2*time.Minute)
+	defer cancel()
+
+	selected, err := interaction.Bot.AwaitInteraction(timeout, func(ic *bot.InteractionContext) bool {
+		return ic.CustomID() == selectUser.CustomID &&
 			ic.User().ID == interaction.User().ID
 	})
 	if err != nil {

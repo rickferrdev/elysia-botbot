@@ -52,7 +52,8 @@ func New(FxArgs FxArgs) *DiscordClient {
 	client.Router = bot.NewRouter()
 	client.Bot = bot.New(
 		FxArgs.Env.DiscordToken,
-		bot.WithIntents(intents.Guilds),
+		bot.WithPrefix("e!"),
+		bot.WithIntents(intents.Guilds | intents.GuildMessages | intents.MessageContent),
 		bot.WithRouter(client.Router),
 		bot.WithGuildCommandSync(guildID),
 	)

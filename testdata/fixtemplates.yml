@@ -1,0 +1,19 @@
+- model: SchemaTemplate
+  rows:
+    - _id: one
+      id: 1
+      guild_id: "guild"
+      author_id: "author"
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"
+
+- model: SchemaTemplateContent
+  rows:
+    - _id: one
+      id: 1
+      template_id: 1
+      content: "Hello, world!"
+      attachments: "[]"
+      embeds: "[]"
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"

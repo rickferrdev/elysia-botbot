@@ -3,6 +3,7 @@ package redisclient
 import (
 	"context"
 	"log/slog"
+	"net"
 	"strconv"
 	"time"
 
@@ -38,7 +39,7 @@ func New(args FxArgs) (*RedisClient, error) {
 		return nil, err
 	}
 	opts := redis.Options{
-		Addr:       args.Env.RedisHost,
+		Addr:       net.JoinHostPort(args.Env.RedisHost, args.Env.RedisPort),
 		Username:   args.Env.RedisUser,
 		Password:   args.Env.RedisPass,
 		DB:         redisDB,

@@ -12,15 +12,15 @@ import (
 )
 
 type mockServerStorage struct {
-	createFn func(ctx context.Context, s domain.Server) error
+	createFn func(ctx context.Context, s domain.Server) (*domain.Server, error)
 	getFn    func(ctx context.Context, guildID string) (*domain.Server, error)
 }
 
-func (m *mockServerStorage) CreateServerWithConfig(ctx context.Context, s domain.Server) error {
+func (m *mockServerStorage) CreateServerWithConfig(ctx context.Context, s domain.Server) (*domain.Server, error) {
 	if m.createFn != nil {
 		return m.createFn(ctx, s)
 	}
-	return nil
+	return nil, nil
 }
 
 func (m *mockServerStorage) GetServerWithConfig(ctx context.Context, guildID string) (*domain.Server, error) {
@@ -35,8 +35,8 @@ func TestServerService(t *testing.T) {
 
 	t.Run("CreateServerWithConfig conflict mapping", func(t *testing.T) {
 		storage := &mockServerStorage{
-			createFn: func(ctx context.Context, s domain.Server) error {
-				return core.NewAppError("conflict", repoerrors.CodeSqlConflict, nil)
+			createFn: func(ctx context.Context, s domain.Server) (*domain.Server, error) {
+				return nil, core.NewAppError("conflict", repoerrors.CodeSqlConflict, nil)
 			},
 		}
 		svc := server.New(server.FxArgs{ServerStorage: storage})

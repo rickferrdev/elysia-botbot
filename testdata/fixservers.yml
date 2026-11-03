@@ -1,0 +1,27 @@
+- model: SchemaServer
+  rows:
+    - _id: one
+      id: 1
+      guild_id: one
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"
+    - _id: two
+      id: 2
+      guild_id: two
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"
+
+- model: SchemaConfig
+  rows:
+    - _id: one
+      id: 1
+      guild_id: one
+      prefix: "e!"
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"
+    - _id: two
+      id: 2
+      guild_id: two
+      prefix: "."
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"
