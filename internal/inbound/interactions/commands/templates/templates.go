@@ -112,32 +112,32 @@ func (cmd *Command) TemplatesSetup(ctx *bot.InteractionContext) {
 		components.NewSelectOptionBuilder().
 			SetLabel("Criar").
 			SetValue("create").
-			SetDescription("Criar um novo registro de incorporação").
+			SetDescription("Criar um novo template").
 			Build(),
 		components.NewSelectOptionBuilder().
 			SetLabel("Obter").
 			SetValue("obtain").
-			SetDescription("Consultar uma incorporação existente").
+			SetDescription("Consultar um template existente").
 			Build(),
 		components.NewSelectOptionBuilder().
 			SetLabel("Obter todas").
 			SetValue("obtain-all").
-			SetDescription("Consultar todas as incorporação existentes").
+			SetDescription("Consultar todos os templates existentes").
 			Build(),
 		components.NewSelectOptionBuilder().
 			SetLabel("Publicar").
 			SetValue("publish").
-			SetDescription("Enviar uma incorporação para um canal").
+			SetDescription("Enviar um template para um canal").
 			Build(),
 		components.NewSelectOptionBuilder().
 			SetLabel("Atualizar").
 			SetValue("update").
-			SetDescription("Atualizar uma incorporação existente").
+			SetDescription("Atualizar um template existente").
 			Build(),
 		components.NewSelectOptionBuilder().
-			SetLabel("Deletar").
+			SetLabel("Excluir").
 			SetValue("delete").
-			SetDescription("Remover uma incorporação existente").
+			SetDescription("Remover um template existente").
 			Build(),
 	}, components.NewStringSelectMenuBuilder().
 		SetCustomID(menuID).
@@ -182,7 +182,7 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 	}
 
 	avatar := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
-	content := "Envie um anexo (ex.: `.json`) ou cole a estrutura JSON da incorporação nesta conversa."
+	content := "Envie um anexo (ex.: `.json`) ou cole a estrutura JSON do template nesta conversa."
 	userID, channelID := ctx.User().ID, ctx.ChannelID()
 	if _, err := ctx.EditReplyComplex(rest.EditMessageParams{
 		Content:    &content,
@@ -256,12 +256,12 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
-		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
+		SetPlaceholder("Qual o ID do template? (ex.: 1)").
 		SetMinLength(1).
 		SetRequired(true).
 		SetStyle(components.TextInputStyleShort).
 		Build(),
-		components.NewModalBuilder().SetTitle("Consultar incorporação").SetCustomID(menuID).Build(),
+		components.NewModalBuilder().SetTitle("Consultar template").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
@@ -330,12 +330,12 @@ func (cmd *Command) Publish(ctx *bot.InteractionContext) {
 	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
-		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
+		SetPlaceholder("Qual o ID do template? (ex.: 1)").
 		SetMinLength(1).
 		SetRequired(true).
 		SetStyle(components.TextInputStyleShort).
 		Build(),
-		components.NewModalBuilder().SetTitle("Publicar incorporação").SetCustomID(menuID).Build(),
+		components.NewModalBuilder().SetTitle("Publicar template").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
@@ -414,12 +414,12 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
-		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
+		SetPlaceholder("Qual o ID do template? (ex.: 1)").
 		SetMinLength(1).
 		SetRequired(true).
 		SetStyle(components.TextInputStyleShort).
 		Build(),
-		components.NewModalBuilder().SetTitle("Atualizar incorporação").SetCustomID(menuID).Build(),
+		components.NewModalBuilder().SetTitle("Atualizar template").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
@@ -439,7 +439,7 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 		return
 	}
 
-	content := "Envie o arquivo `.json` ou cole a nova estrutura JSON da incorporação nesta conversa."
+	content := "Envie o arquivo `.json` ou cole a nova estrutura JSON do template nesta conversa."
 	if _, err := interaction.EditReplyComplex(rest.EditMessageParams{
 		Content:    &content,
 		Components: &[]components.Component{},
@@ -521,12 +521,12 @@ func (cmd *Command) Delete(ctx *bot.InteractionContext) {
 	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
-		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
+		SetPlaceholder("Qual o ID do template? (ex.: 1)").
 		SetMinLength(1).
 		SetRequired(true).
 		SetStyle(components.TextInputStyleShort).
 		Build(),
-		components.NewModalBuilder().SetTitle("Deletar incorporação").SetCustomID(menuID).Build(),
+		components.NewModalBuilder().SetTitle("Excluir template").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
 		cmd.responder.Sender(ctx, responder.WithInternal, err)

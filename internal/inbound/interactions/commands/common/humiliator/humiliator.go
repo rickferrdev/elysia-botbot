@@ -48,7 +48,7 @@ func New(args FxArgs) *Command {
 
 	cmd.client.Router.Command(
 		"humiliator",
-		"Registre uma coisa errada que alguem fez.",
+		"Registre uma coisa errada que alguém fez.",
 		cmd.execute,
 		interactions.ApplicationCommandOption{
 			Type:        interactions.ApplicationCommandOptionTypeUser,
