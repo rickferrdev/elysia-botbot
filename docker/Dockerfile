@@ -7,7 +7,7 @@ RUN go mod download
 
 COPY . .
 
-RUN GCO_ENABLE=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/bot
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/bot
 
 FROM scratch
 
