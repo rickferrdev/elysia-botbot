@@ -1,6 +1,6 @@
 module github.com/rickferrdev/elysia-botbot
 
-go 1.26.3
+go 1.26.0
 
 require (
 	github.com/discord-go/discord.go v0.15.1-rumi

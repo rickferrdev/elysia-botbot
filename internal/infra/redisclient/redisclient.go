@@ -3,7 +3,6 @@ package redisclient
 import (
 	"context"
 	"log/slog"
-	"net"
 	"strconv"
 	"time"
 
@@ -39,12 +38,11 @@ func New(args FxArgs) (*RedisClient, error) {
 		return nil, err
 	}
 	opts := redis.Options{
-		Addr:       net.JoinHostPort(args.Env.RedisHost, args.Env.RedisPort),
-		Username:   args.Env.RedisUser,
-		Password:   args.Env.RedisPass,
-		DB:         redisDB,
-		ClientName: "elysia-botbot",
-		Protocol:   2,
+		Addr:     args.Env.RedisHost,
+		Username: args.Env.RedisUser,
+		Password: args.Env.RedisPass,
+		DB:       redisDB,
+		Protocol: 2,
 	}
 
 	rdc := redis.NewClient(&opts)
