@@ -39,19 +39,19 @@ var Invoke = fx.Invoke(func(discord *DiscordClient) error {
 	return discord.Start()
 })
 
-func New(FxArgs FxArgs) *DiscordClient {
-	guildID := snowflake.MustParse(FxArgs.Env.GuildID)
+func New(args FxArgs) *DiscordClient {
+	guildID := snowflake.MustParse(args.Env.GuildID)
 
 	client := DiscordClient{
-		env:       FxArgs.Env,
-		lifecycle: FxArgs.Lifecycle,
-		logger:    FxArgs.Logger,
+		env:       args.Env,
+		lifecycle: args.Lifecycle,
+		logger:    args.Logger,
 		guildID:   guildID,
 	}
 
 	client.Router = bot.NewRouter()
 	client.Bot = bot.New(
-		FxArgs.Env.DiscordToken,
+		args.Env.DiscordToken,
 		bot.WithPrefix("e!"),
 		bot.WithIntents(intents.Guilds | intents.GuildMessages | intents.MessageContent),
 		bot.WithRouter(client.Router),

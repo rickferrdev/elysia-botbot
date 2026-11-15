@@ -96,6 +96,8 @@ Configure as variáveis de ambiente necessárias para a aplicação, incluindo o
 
 Use o arquivo `.env.example` como referência, conferindo os nomes das variáveis com a configuração da versão que você pretende executar. **Não compartilhe seu token do Discord nem envie credenciais para o repositório.**
 
+O evento que reescreve mensagens de usuários em estilo kawaii e as publica por webhook é opcional; para ativá-lo, configure também `GEMINI_API_KEY` com uma chave da API Gemini. O bot precisa da permissão **Gerenciar Webhooks** nos canais em que esse evento será usado.
+
 ### Executando localmente
 
 Com as dependências configuradas, execute:

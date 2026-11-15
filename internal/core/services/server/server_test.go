@@ -41,8 +41,8 @@ func TestServerService(t *testing.T) {
 		}
 		svc := server.New(server.FxArgs{ServerStorage: storage})
 		err := svc.CreateServerWithConfig(ctx, domain.Server{GuildID: "123"})
-		if !errors.Is(err, server.ErrConflict) {
-			t.Errorf("expected ErrConflict, got %v", err)
+		if !errors.Is(err, server.ErrServerConfigurationAlreadyExists) {
+			t.Errorf("expected ErrServerConfigurationAlreadyExists, got %v", err)
 		}
 	})
 
@@ -54,8 +54,8 @@ func TestServerService(t *testing.T) {
 		}
 		svc := server.New(server.FxArgs{ServerStorage: storage})
 		_, err := svc.ObtainServerWithConfig(ctx, "999")
-		if !errors.Is(err, server.ErrNotFound) {
-			t.Errorf("expected ErrNotFound, got %v", err)
+		if !errors.Is(err, server.ErrServerConfigurationNotFound) {
+			t.Errorf("expected ErrServerConfigurationNotFound, got %v", err)
 		}
 	})
 

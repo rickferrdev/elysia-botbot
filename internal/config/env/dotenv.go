@@ -10,6 +10,7 @@ var Provide = fx.Provide(New)
 type Env struct {
 	DiscordToken string `env:"DISCORD_TOKEN"`
 	GuildID      string `env:"GUILD_ID"`
+	GeminiAPIKey string `env:"GEMINI_API_KEY"`
 	RedisHost    string `env:"REDIS_HOST"`
 	RedisPort    string `env:"REDIS_PORT"`
 	RedisUser    string `env:"REDIS_USER"`

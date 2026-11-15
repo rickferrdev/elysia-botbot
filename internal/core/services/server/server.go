@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/rickferrdev/elysia-botbot/internal/core"
@@ -12,6 +13,11 @@ import (
 )
 
 var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
+
+var (
+	ErrServerConfigurationNotFound      = errors.New("server configuration not found")
+	ErrServerConfigurationAlreadyExists = errors.New("server configuration already exists")
+)
 
 type (
 	Service struct {
@@ -30,9 +36,9 @@ type Interface interface {
 	ObtainServerWithConfig(ctx context.Context, guildID string) (*domain.Server, error)
 }
 
-func New(FxArgs FxArgs) *Service {
+func New(args FxArgs) *Service {
 	service := Service{
-		storage: FxArgs.ServerStorage,
+		storage: args.ServerStorage,
 	}
 
 	return &service
@@ -41,7 +47,7 @@ func New(FxArgs FxArgs) *Service {
 func (service *Service) CreateServerWithConfig(ctx context.Context, server domain.Server) error {
 	_, err := service.storage.CreateServerWithConfig(ctx, server)
 	if core.IsCode(err, repoerrors.CodeSqlConflict) {
-		return fmt.Errorf("%w: %w", ErrConflict, err)
+		return fmt.Errorf("%w: %w", ErrServerConfigurationAlreadyExists, err)
 	}
 
 	return err
@@ -50,7 +56,7 @@ func (service *Service) CreateServerWithConfig(ctx context.Context, server domai
 func (service *Service) ObtainServerWithConfig(ctx context.Context, guildID string) (*domain.Server, error) {
 	result, err := service.storage.GetServerWithConfig(ctx, guildID)
 	if core.IsCode(err, repoerrors.CodeSqlNoRows) {
-		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		return nil, fmt.Errorf("%w: %w", ErrServerConfigurationNotFound, err)
 	}
 
 	return result, err

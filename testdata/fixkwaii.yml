@@ -1,0 +1,5 @@
+- model: SchemaKwaii
+  rows:
+    - _id: one
+      id: 1
+      user_id: 123

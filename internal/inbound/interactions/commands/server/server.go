@@ -115,7 +115,7 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 	avatar := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
 	data, err := cmd.server.ObtainServerWithConfig(ctx.Context(), ctx.Guild.ID.String())
 	if err != nil {
-		if errors.Is(err, server.ErrNotFound) {
+		if errors.Is(err, server.ErrServerConfigurationNotFound) {
 			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
@@ -168,7 +168,7 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 
 	err = cmd.server.CreateServerWithConfig(interaction.Context(), newServer)
 	if err != nil {
-		if errors.Is(err, server.ErrConflict) {
+		if errors.Is(err, server.ErrServerConfigurationAlreadyExists) {
 			cmd.responder.Sender(ctx, responder.WithConflict, err)
 			return
 		}

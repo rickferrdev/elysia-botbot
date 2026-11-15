@@ -452,3 +452,21 @@ func EmbedThrowTomato() messages.Embed {
 		SetImage(url[rand.IntN(len(url))]).
 		Build()
 }
+
+func EmbedCreateOneKwaii() messages.Embed {
+	return messages.NewEmbedBuilder().
+		SetColor(0xB4E4D6).
+		SetTitle("Efeito aplicado ao membro").
+		SetDescription("As próximas mensagens dele aparecerão com o efeito.").
+		SetTimestampNow().
+		Build()
+}
+
+func EmbedDeleteOneKwaii() messages.Embed {
+	return messages.NewEmbedBuilder().
+		SetColor(0xB4E4D6).
+		SetTitle("Efeito removido do membro").
+		SetDescription("As mensagens dele, não terão o mesmo efeito.").
+		SetTimestampNow().
+		Build()
+}

@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbautoreactions"
+	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbfunnies/dbkwaii"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbservers"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbslipper"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbtemplates"
@@ -17,4 +18,5 @@ var Module = fx.Module(
 	dbtomatoes.Provide,
 	dbslipper.Provide,
 	dbautoreactions.Provide,
+	dbkwaii.Provide,
 )

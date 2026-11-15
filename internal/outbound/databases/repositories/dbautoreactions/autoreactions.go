@@ -33,9 +33,9 @@ type Interface interface {
 	GetAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error)
 }
 
-func New(FxArgs FxArgs) (*Database, error) {
+func New(args FxArgs) (*Database, error) {
 	database := Database{
-		sqlite: FxArgs.SqliteClient,
+		sqlite: args.SqliteClient,
 	}
 
 	models := []any{
@@ -43,7 +43,7 @@ func New(FxArgs FxArgs) (*Database, error) {
 	}
 
 	for _, model := range models {
-		_, err := FxArgs.SqliteClient.DB.NewCreateTable().
+		_, err := args.SqliteClient.DB.NewCreateTable().
 			Model(model).
 			IfNotExists().
 			Exec(context.Background())
