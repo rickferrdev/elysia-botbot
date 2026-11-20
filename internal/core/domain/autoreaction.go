@@ -7,7 +7,7 @@ var (
 	AutoReactionTypeMessage    AutoReactionType = "message"
 )
 
-type AutoReactions struct {
+type AutoReaction struct {
 	ID        int
 	GuildID   string
 	ChannelID string
