@@ -105,10 +105,10 @@ func (test *test) TestCreateServerWithConfig() {
 
 func (test *test) TestCreateServerWithInvalidConfig() {
 	actual := &domain.Server{
-		GuildID: "one",
+		GuildID: "2123433400718065664",
 		Config: &domain.Config{
 			Prefix:  "e!",
-			GuildID: "two",
+			GuildID: "2123433400718065665",
 		},
 	}
 
@@ -124,7 +124,7 @@ func (test *test) TestGetServerWithConfig() {
 	serverRow.Config = configRow
 	expect := serverRow.NewDomainServer()
 
-	actual, err := test.storage.GetServerWithConfig(context.Background(), "one")
+	actual, err := test.storage.GetServerWithConfig(context.Background(), "2123433400718065664")
 	test.NoError(err)
 	test.NotNil(actual)
 
@@ -133,7 +133,7 @@ func (test *test) TestGetServerWithConfig() {
 }
 
 func (test *test) TestGetServerWithConfigNotFound() {
-	data, err := test.storage.GetServerWithConfig(context.Background(), "one")
+	data, err := test.storage.GetServerWithConfig(context.Background(), "2123433400718065664")
 
 	test.True(core.IsCode(err, repoerrors.CodeSqlNoRows))
 	test.Nil(data)

@@ -42,11 +42,12 @@ func (m *MockInterface) EXPECT() *MockInterfaceMockRecorder {
 }
 
 // CreateServerWithConfig mocks base method.
-func (m *MockInterface) CreateServerWithConfig(ctx context.Context, server domain.Server) error {
+func (m *MockInterface) CreateServerWithConfig(ctx context.Context, server domain.Server) (*domain.Server, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateServerWithConfig", ctx, server)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*domain.Server)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateServerWithConfig indicates an expected call of CreateServerWithConfig.
