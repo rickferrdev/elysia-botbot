@@ -80,8 +80,8 @@ func (test *test) TestCreateOne() {
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	expect := &domain.Template{
 		ID:       1,
-		GuildID:  "new",
-		AuthorID: "new-user",
+		GuildID:  "2123433400718065665",
+		AuthorID: "2123433441100824579",
 		TemplateContent: &domain.TemplateContent{
 			Content:     "hello",
 			Embeds:      "[]",
@@ -127,14 +127,14 @@ func (test *test) TestGetOneNotFound() {
 
 func (test *test) TestGetAll() {
 	test.loadFixture()
-	expect, err := test.storage.GetAll(context.Background(), "guild", "author")
+	expect, err := test.storage.GetAll(context.Background(), "2123433400718065664", "2123433441100824576")
 	test.NoError(err)
 	test.NotNil(expect)
 	test.Len(expect, 1)
 }
 
 func (test *test) TestGetAllNotFound() {
-	expect, err := test.storage.GetAll(context.Background(), "two", "bob")
+	expect, err := test.storage.GetAll(context.Background(), "2123433400718065665", "2123433441100824577")
 	test.True(core.IsCode(err, repoerrors.CodeSqlNoRows))
 	test.Empty(expect)
 }
@@ -162,8 +162,8 @@ func (test *test) TestUpdateOne() {
 func (test *test) TestUpdateOneNotFound() {
 	expect, err := test.storage.UpdateOne(context.Background(), domain.Template{
 		ID:       10,
-		GuildID:  "bob",
-		AuthorID: "bob",
+		GuildID:  "2123433400718065665",
+		AuthorID: "2123433441100824579",
 		TemplateContent: &domain.TemplateContent{
 			ID: 5,
 		},
