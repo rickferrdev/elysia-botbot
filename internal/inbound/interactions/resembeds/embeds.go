@@ -9,31 +9,6 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 )
 
-func EmbedInsufficientBalance(thumbnail string) messages.Embed {
-	return messages.NewEmbedBuilder().
-		SetTitle("⋆. 𐙚˚࿔ Saldo Insuficiente 𝜗𝜚˚⋆").
-		SetDescription(fmt.Sprintf("Você está sem tomates 🍅 para jogar. Cada tomate custa %d chinelos 🩴.", domain.TomatoesCost)).
-		SetThumbnail(thumbnail).
-		SetColor(0xF38BA8).
-		SetTimestampNow().
-		Build()
-}
-
-func EmbedStartupShop(thumbnail string) messages.Embed {
-	return messages.NewEmbedBuilder().
-		SetTitle("⋆. 𐙚˚࿔ Lojinha da Elysia 𝜗𝜚˚⋆").
-		SetDescription("Seja bem-vindo(a) à nossa lojinha! Escolha um item no menu abaixo para realizar a compra. ♡").
-		SetThumbnail(thumbnail).
-		SetColor(0xB4E4D6).
-		AddField(
-			"🍅 Tomates",
-			fmt.Sprintf("── .✦ Preço: `%d` chinelos cada\n⋆˚꩜｡ Use para arremessar nos outros com `/tomato`!", domain.TomatoesCost),
-			false,
-		).
-		SetTimestampNow().
-		Build()
-}
-
 func EmbedPurchaseShop(thumbnail string, quantity int, cost int, balance int) messages.Embed {
 	embed := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Compra Concluída! 𝜗𝜚˚⋆").
@@ -310,7 +285,7 @@ func EmbedDeleteEmbeds(thumbnail string, removedAuthor string, id int) messages.
 	return embed.Build()
 }
 
-func EmbedCreateAutoReaction(thumbnail string, data domain.AutoReactions) messages.Embed {
+func EmbedCreateAutoReaction(thumbnail string, data domain.AutoReaction) messages.Embed {
 	embed := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Criação de AutoReaction 𝜗𝜚˚⋆").
 		SetThumbnail(thumbnail).
@@ -338,7 +313,7 @@ func EmbedCreateAutoReaction(thumbnail string, data domain.AutoReactions) messag
 	return embed.Build()
 }
 
-func EmbedObtainAutoReaction(thumbnail string, data domain.AutoReactions) messages.Embed {
+func EmbedObtainAutoReaction(thumbnail string, data domain.AutoReaction) messages.Embed {
 	embed := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Obter uma AutoReaction 𝜗𝜚˚⋆").
 		SetThumbnail(thumbnail).
@@ -366,7 +341,7 @@ func EmbedObtainAutoReaction(thumbnail string, data domain.AutoReactions) messag
 	return embed.Build()
 }
 
-func EmbedObtainAllAutoReactions(thumbnail string, data []domain.AutoReactions) messages.Embed {
+func EmbedObtainAllAutoReactions(thumbnail string, data []domain.AutoReaction) messages.Embed {
 	embed := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Obter todas AutoReactions 𝜗𝜚˚⋆").
 		SetThumbnail(thumbnail).
@@ -384,7 +359,7 @@ func EmbedObtainAllAutoReactions(thumbnail string, data []domain.AutoReactions) 
 	return embed.Build()
 }
 
-func EmbedUpdateAutoReaction(thumbnail string, data domain.AutoReactions) messages.Embed {
+func EmbedUpdateAutoReaction(thumbnail string, data domain.AutoReaction) messages.Embed {
 	embed := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Atualizar uma AutoReaction 𝜗𝜚˚⋆").
 		SetThumbnail(thumbnail).
@@ -412,7 +387,7 @@ func EmbedUpdateAutoReaction(thumbnail string, data domain.AutoReactions) messag
 	return embed.Build()
 }
 
-func EmbedDeleteAutoReaction(thumbnail string, data domain.AutoReactions) messages.Embed {
+func EmbedDeleteAutoReaction(thumbnail string, data domain.AutoReaction) messages.Embed {
 	embed := messages.NewEmbedBuilder().
 		SetTitle("⋆. 𐙚˚࿔ Deletar uma AutoReaction 𝜗𝜚˚⋆").
 		SetThumbnail(thumbnail).
@@ -451,4 +426,72 @@ func EmbedThrowTomato() messages.Embed {
 		SetTimestampNow().
 		SetImage(url[rand.IntN(len(url))]).
 		Build()
+}
+
+func EmbedCreateOneKwaii(thumbnail string, data domain.Effect) messages.Embed {
+	embed := messages.NewEmbedBuilder().
+		SetColor(0xB4E4D6).
+		SetTitle("Efeito aplicado ao membro").
+		SetDescription("As próximas mensagens dele aparecerão com o efeito.").
+		SetThumbnail(thumbnail).
+		SetTimestampNow().
+		AddField("Membro", fmt.Sprintf("<@%s>", data.UserID), false).
+		AddField("Efeito", fmt.Sprintf("`%s`", data.Type), true).
+		AddField("Expira", fmt.Sprintf("<t:%d:R>", data.Expiration.Unix()), true)
+
+	return embed.Build()
+}
+
+func EmbedObtainAllKwaii(thumbnail string, data []domain.Effect) messages.Embed {
+	embed := messages.NewEmbedBuilder().
+		SetColor(0xB4E4D6).
+		SetTitle("Efeitos ativos no servidor").
+		SetDescription("Membros com efeitos aplicados.").
+		SetThumbnail(thumbnail).
+		SetTimestampNow()
+
+	for start := 0; start < len(data); start += 4 {
+		end := start + 4
+		if end > len(data) {
+			end = len(data)
+		}
+
+		var entries strings.Builder
+		for _, effect := range data[start:end] {
+			fmt.Fprintf(&entries, "<@%s> · `%s` · <t:%d:R>\n", effect.UserID, effect.Type, effect.Expiration.Unix())
+		}
+		embed.AddField(
+			fmt.Sprintf("Efeitos %d–%d", start+1, end),
+			strings.TrimSpace(entries.String()),
+			false,
+		)
+	}
+
+	return embed.Build()
+}
+
+func EmbedUpdateOneKwaii(thumbnail string, data domain.Effect) messages.Embed {
+	embed := messages.NewEmbedBuilder().
+		SetColor(0xB4E4D6).
+		SetTitle("Efeito atualizado").
+		SetDescription("O efeito do membro foi atualizado com sucesso.").
+		SetThumbnail(thumbnail).
+		SetTimestampNow().
+		AddField("Membro", fmt.Sprintf("<@%s>", data.UserID), false).
+		AddField("Efeito", fmt.Sprintf("`%s`", data.Type), true).
+		AddField("Expira", fmt.Sprintf("<t:%d:R>", data.Expiration.Unix()), true)
+
+	return embed.Build()
+}
+
+func EmbedDeleteOneKwaii(thumbnail string, data domain.Effect) messages.Embed {
+	embed := messages.NewEmbedBuilder().
+		SetColor(0xB4E4D6).
+		SetTitle("Efeito removido do membro").
+		SetDescription("As próximas mensagens do membro não terão mais esse efeito.").
+		SetThumbnail(thumbnail).
+		SetTimestampNow().
+		AddField("Membro", fmt.Sprintf("<@%s>", data.UserID), false)
+
+	return embed.Build()
 }

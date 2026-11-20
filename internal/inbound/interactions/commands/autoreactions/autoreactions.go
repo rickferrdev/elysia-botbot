@@ -210,7 +210,7 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 		return
 	}
 
-	data := domain.AutoReactions{
+	data := domain.AutoReaction{
 		GuildID:   interaction.Guild.ID.String(),
 		ChannelID: channelID,
 		Type:      domain.AutoReactionType(attachmentType),
@@ -219,7 +219,7 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 
 	result, err := cmd.autoreactions.CreateOne(interaction.Context(), data)
 	if err != nil {
-		if errors.Is(err, autoreactions.ErrConflict) {
+		if errors.Is(err, autoreactions.ErrAutoReactionAlreadyExists) {
 			cmd.responder.Sender(interaction, responder.WithConflict, err)
 			return
 		}
@@ -261,7 +261,7 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 		channelID,
 	)
 	if err != nil {
-		if errors.Is(err, autoreactions.ErrNotFound) {
+		if errors.Is(err, autoreactions.ErrAutoReactionNotFound) {
 			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
@@ -284,7 +284,7 @@ func (cmd *Command) ObtainAll(ctx *bot.InteractionContext) {
 
 	data, err := cmd.autoreactions.ObtainAll(ctx.Context(), ctx.GuildID().String())
 	if err != nil {
-		if errors.Is(err, autoreactions.ErrNotFound) {
+		if errors.Is(err, autoreactions.ErrAutoReactionNotFound) {
 			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
@@ -372,7 +372,7 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 		return
 	}
 
-	data := domain.AutoReactions{
+	data := domain.AutoReaction{
 		GuildID:   interaction.Guild.ID.String(),
 		ChannelID: channelID,
 		Type:      domain.AutoReactionType(attachmentType),
@@ -381,7 +381,7 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 
 	result, err := cmd.autoreactions.UpdateOne(interaction.Context(), data)
 	if err != nil {
-		if errors.Is(err, autoreactions.ErrNotFound) {
+		if errors.Is(err, autoreactions.ErrAutoReactionNotFound) {
 			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
@@ -427,7 +427,7 @@ func (cmd *Command) Delete(ctx *bot.InteractionContext) {
 		channelID,
 	)
 	if err != nil {
-		if errors.Is(err, autoreactions.ErrNotFound) {
+		if errors.Is(err, autoreactions.ErrAutoReactionNotFound) {
 			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}

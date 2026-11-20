@@ -145,16 +145,18 @@ var sends = map[ResponderCode]interactions.InteractionCallbackData{
 	},
 }
 
-var WithOk = sends[CodeOK]
-var WithCreated = sends[CodeCreated]
-var WithNoContent = sends[CodeNoContent]
-var WithBadArguments = sends[CodeBadArguments]
-var WithUnauthorized = sends[CodeUnauthorized]
-var WithForbidden = sends[CodeForbidden]
-var WithNotFound = sends[CodeNotFound]
-var WithConflict = sends[CodeConflict]
-var WithInternal = sends[CodeInternal]
-var WithServiceUnavailable = sends[CodeServiceUnavailable]
+var (
+	WithOk                 = sends[CodeOK]
+	WithCreated            = sends[CodeCreated]
+	WithNoContent          = sends[CodeNoContent]
+	WithBadArguments       = sends[CodeBadArguments]
+	WithUnauthorized       = sends[CodeUnauthorized]
+	WithForbidden          = sends[CodeForbidden]
+	WithNotFound           = sends[CodeNotFound]
+	WithConflict           = sends[CodeConflict]
+	WithInternal           = sends[CodeInternal]
+	WithServiceUnavailable = sends[CodeServiceUnavailable]
+)
 
 func New(args FxArgs) *Service {
 	service := Service{Logger: args.Logger}
@@ -242,10 +244,6 @@ func (service *Service) Sender(ctx *bot.InteractionContext, responder interactio
 			Components: &responder.Components,
 			Flags:      &responder.Flags,
 		}
-		// TODO!
-		// if ctx.Message != nil {
-		// 	params.Attachments = ctx.Message.Attachments
-		// }
 		if _, err := ctx.EditReplyComplex(params); err != nil {
 			service.Logger.Error("failed to edit interaction reply", slog.String("error", err.Error()))
 		}

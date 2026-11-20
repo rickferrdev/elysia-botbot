@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/sqliteclient"
@@ -13,6 +14,91 @@ import (
 )
 
 var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
+
+type SchemaTemplate struct {
+	bun.BaseModel `bun:"table:template,alias:t"`
+
+	ID       int    `bun:"id,pk,autoincrement"`
+	GuildID  string `bun:"guild_id,notnull"`
+	AuthorID string `bun:"author_id,notnull"`
+
+	CreatedAt time.Time `bun:"created_at"`
+	UpdatedAt time.Time `bun:"updated_at"`
+
+	TemplateContent *SchemaTemplateContent `bun:"rel:has-one,join:id=template_id"`
+}
+
+type SchemaTemplateContent struct {
+	bun.BaseModel `bun:"table:template_contents"`
+
+	ID         int `bun:"id,pk,autoincrement"`
+	TemplateID int `bun:"template_id,notnull"`
+
+	Content     string `bun:"content"`
+	Attachments string `bun:"attachments"`
+	Embeds      string `bun:"embeds"`
+
+	CreatedAt time.Time `bun:"created_at"`
+	UpdatedAt time.Time `bun:"updated_at"`
+
+	Template *SchemaTemplate `bun:"rel:belongs-to,join:template_id=id"`
+}
+
+func NewSchemaTemplate(template domain.Template) SchemaTemplate {
+	schema := SchemaTemplate{
+		ID:        template.ID,
+		GuildID:   template.GuildID,
+		AuthorID:  template.AuthorID,
+		CreatedAt: template.CreatedAt,
+		UpdatedAt: template.UpdatedAt,
+	}
+
+	return schema
+}
+
+func (schema *SchemaTemplate) NewDomainTemplate() *domain.Template {
+	domain := domain.Template{
+		ID:        schema.ID,
+		GuildID:   schema.GuildID,
+		AuthorID:  schema.AuthorID,
+		CreatedAt: schema.CreatedAt,
+		UpdatedAt: schema.UpdatedAt,
+	}
+	if schema.TemplateContent != nil {
+		content := schema.TemplateContent.NewDomainTemplateContent()
+		domain.TemplateContent = &content
+	}
+
+	return &domain
+}
+
+func NewSchemaTemplateContent(template domain.TemplateContent) SchemaTemplateContent {
+	schema := SchemaTemplateContent{
+		ID:          template.ID,
+		TemplateID:  template.TemplateID,
+		Attachments: template.Attachments,
+		Content:     template.Content,
+		Embeds:      template.Embeds,
+		CreatedAt:   template.CreatedAt,
+		UpdatedAt:   template.UpdatedAt,
+	}
+
+	return schema
+}
+
+func (schema *SchemaTemplateContent) NewDomainTemplateContent() domain.TemplateContent {
+	domain := domain.TemplateContent{
+		ID:          schema.ID,
+		TemplateID:  schema.TemplateID,
+		Attachments: schema.Attachments,
+		Content:     schema.Content,
+		Embeds:      schema.Embeds,
+		CreatedAt:   schema.CreatedAt,
+		UpdatedAt:   schema.UpdatedAt,
+	}
+
+	return domain
+}
 
 //go:generate mockgen -source=templates.go -destination=mocks/mock_templates.go -package=mock_templates
 type (
@@ -35,9 +121,9 @@ type Interface interface {
 	DeleteOne(ctx context.Context, id int) (*domain.Template, error)
 }
 
-func New(FxArgs FxArgs) (*Database, error) {
+func New(args FxArgs) (*Database, error) {
 	database := Database{
-		sqlite: FxArgs.SqliteClient,
+		sqlite: args.SqliteClient,
 	}
 
 	models := []any{
@@ -46,7 +132,7 @@ func New(FxArgs FxArgs) (*Database, error) {
 	}
 
 	for _, model := range models {
-		_, err := FxArgs.SqliteClient.DB.NewCreateTable().
+		_, err := args.SqliteClient.DB.NewCreateTable().
 			Model(model).
 			IfNotExists().
 			Exec(context.Background())
@@ -65,7 +151,6 @@ func (database *Database) CreateOne(ctx context.Context, template domain.Templat
 	templateSchema := NewSchemaTemplate(template)
 	contentSchema := NewSchemaTemplateContent(*template.TemplateContent)
 	err := database.sqlite.DB.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-
 		err := tx.NewInsert().
 			Model(&templateSchema).
 			Returning("id").
@@ -223,7 +308,6 @@ func (database *Database) DeleteOne(ctx context.Context, id int) (*domain.Templa
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, repoerrors.TranslateSqliteError(err)
 	}

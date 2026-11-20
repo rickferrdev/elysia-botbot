@@ -1,14 +1,9 @@
  <div align="center">
 
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:07130D,50:123D2A,100:2EA66B&height=180&section=header&text=Elysia-BotBot&fontSize=52&fontColor=E8FFF0&fontAlignY=38&desc=Discord%20Bot%20%E2%80%A2%20Built%20with%20Go&descSize=17&descAlignY=60&animation=fadeIn" width="100%" alt="ElysiaBotBot — Discord Bot built with Go" />
-
-  <a href="https://github.com/rickferrdev/elysia-botbot">
-    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=16&duration=2800&pause=900&color=52D991&center=true&vCenter=true&width=600&lines=Building+more+than+a+Discord+bot.;Learning+Go+through+real+software.;Clean+code.+Thoughtful+architecture.;One+commit+at+a+time." alt="Animated messages about the project" />
-  </a>
+   <img src="./assets/elysia-hero.svg" width="100%" alt="Elysia-BotBot message flow with AI effects, auto-reactions, and templates" />
 
   <p>
-    <strong>A learning project with a product-oriented mindset.</strong><br/>
-    Exploring backend architecture, software engineering practices, and Go development.
+     <strong>A learning project with a product-oriented mindset.</strong>
   </p>
 
   <p>
@@ -35,7 +30,7 @@ A Discord bot built with Go as a hands-on learning project focused on software a
 **ElysiaBotBot** brings together features for Discord servers in an application structured to support maintainability, extensibility, and code readability. Beyond building a bot, the goal is to explore how to design and organize a Go backend using tools and patterns found in real-world software projects.
 
 > [!NOTE]
-> This project is maintained for educational purposes and practical learning. Version `1.0.0` marks a milestone following stabilization, bug fixes, and refactoring.
+> This project is maintained for educational purposes and practical learning. Version `3.0.0` consolidates the service reorganization and the evolution of the bot's features.
 
 ## Goals
 
@@ -48,16 +43,15 @@ A Discord bot built with Go as a hands-on learning project focused on software a
 
 ## Features
 
-The project brings together features for configuring and customizing Discord servers.
+The bot provides commands and events for administering and customizing Discord servers:
 
-- [x] Discord command and event handling structure.
-- [x] Server-specific configuration.
-- [x] Auto-reaction system.
-- [x] Embed support.
-- [x] Data persistence with SQLite.
-- [x] Redis integration for caching.
+- `/server`: view and configure the server prefix.
+- `/autoreactions`: configure automatic reactions for text messages or attachments.
+- `/effects`: apply and manage temporary Gemini-powered message rewriting effects.
+- `/templates`: create, view, update, and publish messages with content, embeds, and attachments.
+- `/bestchoice` and `/humiliator`: social and entertainment commands.
 
-Feature availability and behavior depend on the implementation included in the published release.
+Configuration commands are restricted to administrators. Message events apply auto-reactions and active effects.
 
 ## Tech Stack
 
@@ -77,9 +71,10 @@ Feature availability and behavior depend on the implementation included in the p
 
 To run the project locally, you will need:
 
-- [Go](https://go.dev/dl/)
+- [Go 1.26](https://go.dev/dl/)
 - A Discord application and bot configured in the [Discord Developer Portal](https://discord.com/developers/applications)
 - A running [Redis](https://redis.io/) instance
+- A Gemini API key
 - Docker, if you prefer to run the application in a container
 
 ### Configuration
@@ -91,9 +86,20 @@ git clone https://github.com/rickferrdev/elysia-botbot.git
 cd elysia-botbot
 ```
 
-Configure the environment variables required by the application, including the bot token, database connection settings, and Redis credentials.
+Copy `.env.example` to `.env` and fill in the required settings:
 
-Use `.env.example` as a reference, and verify that the variable names match the configuration of the version you intend to run. **Never expose your Discord bot token or commit credentials to the repository.**
+| Variable | Description |
+| --- | --- |
+| `DISCORD_TOKEN` | Discord bot token |
+| `GUILD_ID` | Guild ID used to sync commands |
+| `GEMINI_API_KEY` | Gemini API key, required by the current configuration |
+| `SQLITE_DB` | SQLite database file path |
+| `REDIS_HOST` | Redis address, including the port when needed |
+| `REDIS_USER` | Redis username |
+| `REDIS_PASS` | Redis password |
+| `REDIS_DB` | Redis database index |
+
+The effects feature uses Gemini and posts rewritten messages through a webhook. Enable the privileged **Message Content** intent in the Discord Developer Portal. The bot also needs the **Manage Webhooks** permission in channels where effects are used. **Never expose your Discord bot token or commit credentials to the repository.**
 
 ### Running Locally
 
@@ -106,13 +112,22 @@ go run ./cmd/bot
 
 ### Running with Docker
 
-Build the Docker image:
+From the repository root, build the image using the Dockerfile in the `docker` directory:
 
 ```bash
-docker build -t elysiabotbot .
+docker build -f docker/Dockerfile -t elysiabotbot .
 ```
 
-When running the container, provide the required environment variables and ensure it can access external services such as Redis.
+To keep the SQLite database beyond the container's lifetime, use a volume and provide a writable path:
+
+```bash
+docker run --rm --env-file .env \
+  -v elysiabotbot-data:/data \
+  -e SQLITE_DB=/data/elysia.sqlite3 \
+  elysiabotbot
+```
+
+The container must also be able to reach Redis. Set `REDIS_HOST` to an address accessible from inside the container; do not use `localhost` for Redis running in another container or on the host.
 
 ## Learning and Continuous Improvement
 

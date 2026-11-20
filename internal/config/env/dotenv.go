@@ -8,14 +8,14 @@ import (
 var Provide = fx.Provide(New)
 
 type Env struct {
-	DiscordToken string `env:"DISCORD_TOKEN"`
-	GuildID      string `env:"GUILD_ID"`
-	RedisHost    string `env:"REDIS_HOST"`
-	RedisPort    string `env:"REDIS_PORT"`
-	RedisUser    string `env:"REDIS_USER"`
-	RedisPass    string `env:"REDIS_PASS"`
-	RedisDB      string `env:"REDIS_DB"`
-	SqliteDB     string `env:"SQLITE_DB"`
+	DiscordToken string `env:"DISCORD_TOKEN" required:"true"`
+	GuildID      string `env:"GUILD_ID" required:"true"`
+	GeminiAPIKey string `env:"GEMINI_API_KEY" required:"true"`
+	RedisHost    string `env:"REDIS_HOST" required:"true"`
+	RedisUser    string `env:"REDIS_USER" required:"true"`
+	RedisPass    string `env:"REDIS_PASS" required:"true"`
+	RedisDB      string `env:"REDIS_DB" required:"true"`
+	SqliteDB     string `env:"SQLITE_DB" required:"true"`
 }
 
 func New() (*Env, error) {

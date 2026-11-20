@@ -1,0 +1,34 @@
+- model: SchemaEffect
+  rows:
+    - _id: one
+      id: 1
+      guild_id: "2123433400718065664"
+      user_id: "2123433441100824576"
+      type: "kwaii"
+      expiration: "{{ now }}"
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"
+    - _id: two
+      id: 2
+      guild_id: "2123433400718065664"
+      user_id: "2123433441100824577"
+      type: "kwaii"
+      expiration: "{{ now }}"
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"
+    - _id: three
+      id: 3
+      guild_id: "2123433400718065664"
+      user_id: "2123433441100824578"
+      type: "kwaii"
+      expiration: "{{ now }}"
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"
+    - _id: four
+      id: 4
+      guild_id: "2123433400718065665"
+      user_id: "2123433441100824579"
+      type: "kwaii"
+      expiration: "{{ now }}"
+      created_at: "{{ now }}"
+      updated_at: "{{ now }}"

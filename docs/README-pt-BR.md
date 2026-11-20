@@ -1,14 +1,9 @@
  <div align="center">
 
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:07130D,50:123D2A,100:2EA66B&height=180&section=header&text=Elysia-BotBot&fontSize=52&fontColor=E8FFF0&fontAlignY=38&desc=Discord%20Bot%20%E2%80%A2%20Built%20with%20Go&descSize=17&descAlignY=60&animation=fadeIn" width="100%" alt="ElysiaBotBot — Discord Bot built with Go" />
-
-  <a href="https://github.com/rickferrdev/elysia-botbot">
-    <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=16&duration=2800&pause=900&color=52D991&center=true&vCenter=true&width=600&lines=Building+more+than+a+Discord+bot.;Learning+Go+through+real+software.;Clean+code.+Thoughtful+architecture.;One+commit+at+a+time." alt="Mensagens animadas sobre o projeto" />
-  </a>
+   <img src="./assets/elysia-hero.svg" width="100%" alt="Fluxo de conversa do Elysia-BotBot com efeitos de IA, autorreações e templates" />
 
   <p>
-    <strong>Um projeto de estudo com mentalidade de produto.</strong><br/>
-    Explorando arquitetura backend, boas práticas e desenvolvimento em Go.
+     <strong>Um projeto de estudo com mentalidade de produto.</strong>
   </p>
 
   <p>
@@ -36,7 +31,7 @@ Um bot para Discord desenvolvido em Go, criado como um projeto de estudo com foc
 O **ElysiaBotBot** reúne funcionalidades para servidores Discord em uma aplicação estruturada para facilitar a manutenção, a evolução e a compreensão do código. Mais do que construir um bot, a proposta é explorar como desenvolver e organizar uma aplicação backend em Go utilizando ferramentas e padrões presentes em projetos reais.
 
 > [!NOTE]
-> O projeto é mantido com objetivos educacionais e de aprendizado prático. A versão `1.0.0` representa a conclusão de uma etapa de estabilização, correções e refatorações.
+> O projeto é mantido com objetivos educacionais e de aprendizado prático. A versão `3.0.0` consolida a reorganização dos serviços e a evolução das funcionalidades do bot.
 
 ## Objetivos
 
@@ -49,23 +44,22 @@ O **ElysiaBotBot** reúne funcionalidades para servidores Discord em uma aplica�
 
 ## Funcionalidades
 
-O projeto reúne funcionalidades voltadas à configuração e à personalização de servidores Discord.
+O bot oferece comandos e eventos para administrar e personalizar servidores Discord:
 
-- [x] Estrutura para comandos e eventos do Discord.
-- [x] Configurações específicas por servidor.
-- [x] Sistema de autorreações.
-- [x] Suporte a embeds.
-- [x] Persistência de dados com SQLite.
-- [x] Integração com Redis para operações de cache.
+- `/server`: consultar e configurar o prefixo do servidor.
+- `/autoreactions`: configurar reações automáticas para mensagens de texto ou anexos.
+- `/effects`: aplicar e administrar efeitos temporários de reescrita de mensagens com Gemini.
+- `/templates`: criar, consultar, atualizar e publicar mensagens com conteúdo, embeds e anexos.
+- `/bestchoice` e `/humiliator`: comandos de interação e entretenimento.
 
-A disponibilidade e o comportamento de cada funcionalidade dependem da implementação presente na versão publicada.
+Os comandos de configuração são restritos a administradores. Eventos de mensagens aplicam autorreações e efeitos ativos.
 
 ## Tecnologias
 
 | Tecnologia | Utilização |
 | --- | --- |
 | [Go](https://go.dev/) | Linguagem principal |
-| [discord.go](https://github.com/diamondburned/arikawa) | Integração com a API do Discord |
+| [discord.go](https://github.com/discord-go/discord.go) | Integração com a API do Discord |
 | [SQLite](https://www.sqlite.org/) | Persistência de dados |
 | [Bun](https://bun.uptrace.dev/) | Acesso ao banco de dados |
 | [Redis](https://redis.io/) | Cache |
@@ -78,9 +72,10 @@ A disponibilidade e o comportamento de cada funcionalidade dependem da implement
 
 Para executar o projeto localmente, você precisará de:
 
-- [Go](https://go.dev/dl/)
+- [Go 1.26](https://go.dev/dl/)
 - Uma aplicação e um bot configurados no [Discord Developer Portal](https://discord.com/developers/applications)
 - [Redis](https://redis.io/) em execução
+- Uma chave da API Gemini
 - Docker, caso prefira executar a aplicação em um contêiner
 
 ### Configuração
@@ -92,9 +87,20 @@ git clone https://github.com/rickferrdev/elysia-botbot.git
 cd elysia-botbot
 ```
 
-Configure as variáveis de ambiente necessárias para a aplicação, incluindo o token do bot, a conexão com o banco de dados e as credenciais de acesso ao Redis.
+Copie `.env.example` para `.env` e preencha as configurações:
 
-Use o arquivo `.env.example` como referência, conferindo os nomes das variáveis com a configuração da versão que você pretende executar. **Não compartilhe seu token do Discord nem envie credenciais para o repositório.**
+| Variável | Descrição |
+| --- | --- |
+| `DISCORD_TOKEN` | Token do bot do Discord |
+| `GUILD_ID` | ID do servidor usado para sincronizar os comandos |
+| `GEMINI_API_KEY` | Chave Gemini, exigida pela configuração atual |
+| `SQLITE_DB` | Caminho do arquivo SQLite |
+| `REDIS_HOST` | Endereço do Redis, incluindo a porta quando necessário |
+| `REDIS_USER` | Usuário do Redis |
+| `REDIS_PASS` | Senha do Redis |
+| `REDIS_DB` | Índice do banco Redis |
+
+O recurso de efeitos usa a API Gemini e publica a mensagem reescrita por webhook. No Discord Developer Portal, habilite o intent privilegiado **Message Content**. O bot também precisa da permissão **Gerenciar Webhooks** nos canais em que os efeitos forem usados. **Não compartilhe tokens ou credenciais nem os envie ao repositório.**
 
 ### Executando localmente
 
@@ -107,13 +113,22 @@ go run ./cmd/bot
 
 ### Executando com Docker
 
-Para construir a imagem:
+Na raiz do repositório, construa a imagem usando o Dockerfile do diretório `docker`:
 
 ```bash
-docker build -t elysiabotbot .
+docker build -f docker/Dockerfile -t elysiabotbot .
 ```
 
-A execução do contêiner também precisa receber as variáveis de ambiente e ter acesso aos serviços externos necessários, como o Redis.
+Para manter o arquivo SQLite fora do ciclo de vida do contêiner, use um volume e informe um caminho gravável:
+
+```bash
+docker run --rm --env-file .env \
+  -v elysiabotbot-data:/data \
+  -e SQLITE_DB=/data/elysia.sqlite3 \
+  elysiabotbot
+```
+
+O contêiner também precisa alcançar o Redis. Configure `REDIS_HOST` com um endereço acessível de dentro do contêiner; não use `localhost` para um Redis executado em outro contêiner ou no host.
 
 ## Aprendizados e evolução
 

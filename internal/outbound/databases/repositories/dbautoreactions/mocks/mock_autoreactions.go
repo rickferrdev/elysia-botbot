@@ -42,10 +42,10 @@ func (m *MockInterface) EXPECT() *MockInterfaceMockRecorder {
 }
 
 // CreateOne mocks base method.
-func (m *MockInterface) CreateOne(ctx context.Context, autoreactions domain.AutoReactions) (*domain.AutoReactions, error) {
+func (m *MockInterface) CreateOne(ctx context.Context, autoreactions domain.AutoReaction) (*domain.AutoReaction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateOne", ctx, autoreactions)
-	ret0, _ := ret[0].(*domain.AutoReactions)
+	ret0, _ := ret[0].(*domain.AutoReaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -57,10 +57,10 @@ func (mr *MockInterfaceMockRecorder) CreateOne(ctx, autoreactions any) *gomock.C
 }
 
 // DeleteOne mocks base method.
-func (m *MockInterface) DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
+func (m *MockInterface) DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReaction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteOne", ctx, guildID, channelID)
-	ret0, _ := ret[0].(*domain.AutoReactions)
+	ret0, _ := ret[0].(*domain.AutoReaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -72,10 +72,10 @@ func (mr *MockInterfaceMockRecorder) DeleteOne(ctx, guildID, channelID any) *gom
 }
 
 // GetAll mocks base method.
-func (m *MockInterface) GetAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error) {
+func (m *MockInterface) GetAll(ctx context.Context, guildID string) ([]domain.AutoReaction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAll", ctx, guildID)
-	ret0, _ := ret[0].([]domain.AutoReactions)
+	ret0, _ := ret[0].([]domain.AutoReaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -87,10 +87,10 @@ func (mr *MockInterfaceMockRecorder) GetAll(ctx, guildID any) *gomock.Call {
 }
 
 // GetOne mocks base method.
-func (m *MockInterface) GetOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
+func (m *MockInterface) GetOne(ctx context.Context, guildID, channelID string) (*domain.AutoReaction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetOne", ctx, guildID, channelID)
-	ret0, _ := ret[0].(*domain.AutoReactions)
+	ret0, _ := ret[0].(*domain.AutoReaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -102,10 +102,10 @@ func (mr *MockInterfaceMockRecorder) GetOne(ctx, guildID, channelID any) *gomock
 }
 
 // UpdateOne mocks base method.
-func (m *MockInterface) UpdateOne(ctx context.Context, autoreactions domain.AutoReactions) (*domain.AutoReactions, error) {
+func (m *MockInterface) UpdateOne(ctx context.Context, autoreactions domain.AutoReaction) (*domain.AutoReaction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateOne", ctx, autoreactions)
-	ret0, _ := ret[0].(*domain.AutoReactions)
+	ret0, _ := ret[0].(*domain.AutoReaction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
