@@ -1,7 +1,0 @@
-- model: SchemaCatalog
-  rows:
-    - _id: one
-      id: 1
-      name: slipper
-      type: coin
-      stackable: 100
