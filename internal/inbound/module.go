@@ -7,5 +7,6 @@ import (
 
 var Module = fx.Module(
 	"inbound",
+
 	interactions.Module,
 )

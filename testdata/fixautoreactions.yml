@@ -2,13 +2,13 @@
   rows:
     - _id: one
       id: 1
-      guild_id: one
-      channel_id: channel_one
+      guild_id: "2123433400718065664"
+      channel_id: "2123433400718065670"
       type: attachment
       emoji: "👍"
     - _id: two
       id: 2
-      guild_id: one
-      channel_id: channel_two
+      guild_id: "2123433400718065664"
+      channel_id: "2123433400718065671"
       type: message
       emoji: "👎"

@@ -2,12 +2,12 @@
   rows:
     - _id: one
       id: 1
-      guild_id: one
+      guild_id: "2123433400718065664"
       created_at: "{{ now }}"
       updated_at: "{{ now }}"
     - _id: two
       id: 2
-      guild_id: two
+      guild_id: "2123433400718065665"
       created_at: "{{ now }}"
       updated_at: "{{ now }}"
 
@@ -15,13 +15,13 @@
   rows:
     - _id: one
       id: 1
-      guild_id: one
+      guild_id: "2123433400718065664"
       prefix: "e!"
       created_at: "{{ now }}"
       updated_at: "{{ now }}"
     - _id: two
       id: 2
-      guild_id: two
+      guild_id: "2123433400718065665"
       prefix: "."
       created_at: "{{ now }}"
       updated_at: "{{ now }}"

@@ -1,0 +1,179 @@
+package servers
+
+import (
+	"errors"
+
+	"github.com/discord-go/discord.go/bot"
+	"github.com/discord-go/discord.go/components"
+	"github.com/discord-go/discord.go/permissions"
+	"github.com/discord-go/discord.go/users"
+	"github.com/google/uuid"
+	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
+	"github.com/rickferrdev/elysia-botbot/internal/core/services/interactionflow"
+	"github.com/rickferrdev/elysia-botbot/internal/core/services/responder"
+	"github.com/rickferrdev/elysia-botbot/internal/core/services/servers"
+	"github.com/rickferrdev/elysia-botbot/internal/inbound/interactions/resembeds"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
+	"go.uber.org/fx"
+)
+
+var Invoke = fx.Invoke(New)
+
+type FxArgs struct {
+	fx.In
+
+	DiscordClient   *discordclient.DiscordClient
+	Responder       responder.Interface
+	Server          servers.Interface
+	InteractionFlow interactionflow.Interface
+}
+
+type Command struct {
+	flow      interactionflow.Interface
+	client    *discordclient.DiscordClient
+	server    servers.Interface
+	responder responder.Interface
+}
+
+func New(args FxArgs) *Command {
+	server := Command{
+		flow:      args.InteractionFlow,
+		responder: args.Responder,
+		client:    args.DiscordClient,
+		server:    args.Server,
+	}
+
+	args.DiscordClient.Router.Command(
+		"server",
+		"Configurações úteis para o servidor.",
+		server.execute,
+	).
+		Use(bot.RequirePermissions(
+			permissions.Build(
+				permissions.Administrator,
+			),
+		))
+	return &server
+}
+
+func (cmd *Command) execute(ctx *bot.InteractionContext) {
+	cmd.ServerSetup(ctx, cmd.client.Router)
+
+	cmd.responder.Sender(ctx, responder.WithOk, nil)
+}
+
+func (cmd *Command) ServerSetup(ctx *bot.InteractionContext, router *bot.Router) {
+	if err := ctx.DeferEphemeral(); err != nil {
+		return
+	}
+
+	menuID := uuid.NewString()
+	interaction, err := cmd.flow.AwaitStringSelect(
+		ctx,
+		[]components.SelectOption{
+			components.NewSelectOptionBuilder().
+				SetLabel("Obter configurações").
+				SetValue("obtain").
+				SetDescription("Consultar as configurações atuais do servidor").
+				Build(),
+			components.NewSelectOptionBuilder().
+				SetLabel("Criar/Atualizar configurações").
+				SetValue("create").
+				SetDescription("Criar ou atualizar as configurações do servidor").
+				Build(),
+		}, components.NewStringSelectMenuBuilder().
+			SetCustomID(menuID).
+			SetPlaceholder("Selecione uma opção.").
+			SetMinValues(1).
+			SetMaxValues(1).
+			Build(),
+	)
+	if err != nil {
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		return
+	}
+
+	switch interaction.Values()[0] {
+	case "obtain":
+		cmd.Obtain(interaction)
+		return
+	case "create":
+		cmd.Create(interaction)
+		return
+	default:
+		return
+	}
+}
+
+func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
+	if err := ctx.DeferUpdate(); err != nil {
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		return
+	}
+
+	avatar := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
+	data, err := cmd.server.ObtainServerWithConfig(ctx.Context(), ctx.Guild.ID.String())
+	if err != nil {
+		if errors.Is(err, servers.ErrServerConfigurationNotFound) {
+			cmd.responder.Sender(ctx, responder.WithNotFound, err)
+			return
+		}
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		return
+	}
+	if data.Config == nil {
+		embed := resembeds.EmbedInvalidConfigServer(avatar)
+		cmd.responder.Sender(ctx, responder.WithEmbed(embed), nil)
+		return
+	}
+
+	embed := resembeds.EmbedConfigurationsServer(ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{}), *data)
+	cmd.responder.Sender(ctx, responder.WithEmbed(embed), nil)
+}
+
+func (cmd *Command) Create(ctx *bot.InteractionContext) {
+	inputID := uuid.NewString()
+	modalID := uuid.NewString()
+	avatar := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
+	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx,
+		components.NewTextInputBuilder().
+			SetCustomID(inputID).
+			SetLabel("Digite um prefixo para o bot").
+			SetStyle(components.TextInputStyleShort).
+			SetPlaceholder("e!").
+			SetRequired(true).
+			SetMaxLength(5).
+			Build(),
+		components.NewModalBuilder().SetCustomID(modalID).SetTitle("Adicionar/Atualizar as configurações").Build(),
+	)
+	if err != nil {
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		return
+	}
+
+	if err := interaction.DeferUpdate(); err != nil {
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		return
+	}
+
+	newServer := domain.Server{
+		GuildID: interaction.Guild.ID.String(),
+		Config: &domain.Config{
+			GuildID: interaction.Guild.ID.String(),
+			Prefix:  interaction.ModalValue(inputID),
+		},
+	}
+
+	err = cmd.server.CreateServerWithConfig(interaction.Context(), newServer)
+	if err != nil {
+		if errors.Is(err, servers.ErrServerConfigurationAlreadyExists) {
+			cmd.responder.Sender(ctx, responder.WithConflict, err)
+			return
+		}
+		cmd.responder.Sender(ctx, responder.WithInternal, err)
+		return
+	}
+
+	embed := resembeds.EmbedConfigurationsServer(avatar, newServer)
+	cmd.responder.Sender(ctx, responder.WithEmbed(embed), nil)
+}

@@ -1,23 +1,23 @@
  <div align="center">
 
-   <img src="https://capsule-render.vercel.app/api?type=waving&color=0:07130D,45:123D2A,100:2EA66B&height=200&section=header&text=ELYSIA-BOTBOT&fontSize=54&fontColor=E8FFF0&fontAlignY=38&desc=YOUR%20SERVER%2C%20YOUR%20VIBE&descSize=16&descAlignY=60&animation=fadeIn" width="100%" alt="Elysia-BotBot — your server, your vibe" />
+   <img src="./assets/elysia-hero.svg" width="100%" alt="Elysia-BotBot message flow with AI effects, auto-reactions, and templates" />
 
-   <a href="https://github.com/rickferrdev/elysia-botbot">
-     <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=16&duration=2600&pause=850&color=52D991&center=true&vCenter=true&width=650&lines=Templates+that+bring+your+server+to+life.;Tomatoes,+slippers,+and+a+tiny+shop.;Made+with+Go.+Ready+for+Discord." alt="Templates, a playful tomato economy, and Go-powered Discord tools" />
-   </a>
+  <p>
+     <strong>A learning project with a product-oriented mindset.</strong>
+  </p>
 
-   <p>
-     <a href="#features"><img src="https://img.shields.io/badge/EXPLORE-Features-239B56?style=for-the-badge&logo=sparkles&logoColor=white" alt="Explore features"/></a>
-     <a href="#tech-stack"><img src="https://img.shields.io/badge/BUILT_WITH-Go-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Built with Go"/></a>
-     <a href="#getting-started"><img src="https://img.shields.io/badge/GET_STARTED-Quickstart-276749?style=for-the-badge&logo=rocket&logoColor=white" alt="Get started"/></a>
-   </p>
+  <p>
+    <a href="#-features"><img src="https://img.shields.io/badge/Features-Explore-239B56?style=for-the-badge" alt="Explore features"/></a>
+    <a href="#-tech-stack"><img src="https://img.shields.io/badge/Stack-Go%20%7C%20Redis%20%7C%20SQLite-183D2B?style=for-the-badge" alt="Technology stack"/></a>
+    <a href="#-getting-started"><img src="https://img.shields.io/badge/Getting_Started-Quickstart-276749?style=for-the-badge" alt="Getting started"/></a>
+  </p>
 
-   <p>
-     <img src="https://img.shields.io/badge/DISCORD-Bot-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord bot"/>
-     <img src="https://img.shields.io/badge/REDIS-Cache-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis cache"/>
-     <img src="https://img.shields.io/badge/SQLITE-Storage-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite storage"/>
-     <img src="https://img.shields.io/badge/TOMATO_AND_SLIPPER-Tiny_Economy-2EA66B?style=flat-square" alt="Tomato and slipper economy"/>
-   </p>
+  <p>
+    <img src="https://img.shields.io/badge/Go-Backend-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go"/>
+    <img src="https://img.shields.io/badge/Discord-Bot-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord"/>
+    <img src="https://img.shields.io/badge/Redis-Cache-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis"/>
+    <img src="https://img.shields.io/badge/SQLite-Database-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite"/>
+  </p>
 
 </div>
 
@@ -30,7 +30,7 @@ A Discord bot built with Go as a hands-on learning project focused on software a
 **ElysiaBotBot** brings together features for Discord servers in an application structured to support maintainability, extensibility, and code readability. Beyond building a bot, the goal is to explore how to design and organize a Go backend using tools and patterns found in real-world software projects.
 
 > [!NOTE]
-> This project is maintained for educational purposes and practical learning. Version `2.0.0` introduces a breaking update with reusable templates and a new tomato-and-slipper economy.
+> This project is maintained for educational purposes and practical learning. Version `3.0.0` consolidates the service reorganization and the evolution of the bot's features.
 
 ## Goals
 
@@ -43,21 +43,15 @@ A Discord bot built with Go as a hands-on learning project focused on software a
 
 ## Features
 
-The project brings together features for configuring and customizing Discord servers.
+The bot provides commands and events for administering and customizing Discord servers:
 
-- [x] Discord command and event handling structure.
-- [x] Server-specific configuration.
-- [x] Auto-reaction system.
-- [x] Reusable message templates.
-- [x] Funny commands, including `/humiliator` and `/bestchoice`.
-- [x] Tomato and slipper balances, with a shop to exchange 5 slippers for 1 tomato.
-- [x] Data persistence with SQLite.
-- [x] Redis integration for caching.
+- `/server`: view and configure the server prefix.
+- `/autoreactions`: configure automatic reactions for text messages or attachments.
+- `/effects`: apply and manage temporary Gemini-powered message rewriting effects.
+- `/templates`: create, view, update, and publish messages with content, embeds, and attachments.
+- `/bestchoice` and `/humiliator`: social and entertainment commands.
 
-### Breaking changes in 2.0.0
-
-- The legacy `/embeds` and `/bestphoto` commands are replaced by `/templates` and `/bestchoice`.
-- Data from the legacy `embeds` and `fun_slippers` tables is not migrated. Back up any data you need before upgrading.
+Configuration commands are restricted to administrators. Message events apply auto-reactions and active effects.
 
 ## Tech Stack
 
@@ -77,9 +71,10 @@ The project brings together features for configuring and customizing Discord ser
 
 To run the project locally, you will need:
 
-- [Go](https://go.dev/dl/)
+- [Go 1.26](https://go.dev/dl/)
 - A Discord application and bot configured in the [Discord Developer Portal](https://discord.com/developers/applications)
 - A running [Redis](https://redis.io/) instance
+- A Gemini API key
 - Docker, if you prefer to run the application in a container
 
 ### Configuration
@@ -91,9 +86,20 @@ git clone https://github.com/rickferrdev/elysia-botbot.git
 cd elysia-botbot
 ```
 
-Configure the environment variables required by the application, including the bot token, database connection settings, and Redis credentials.
+Copy `.env.example` to `.env` and fill in the required settings:
 
-Use `.env.example` as a reference, and verify that the variable names match the configuration of the version you intend to run. **Never expose your Discord bot token or commit credentials to the repository.**
+| Variable | Description |
+| --- | --- |
+| `DISCORD_TOKEN` | Discord bot token |
+| `GUILD_ID` | Guild ID used to sync commands |
+| `GEMINI_API_KEY` | Gemini API key, required by the current configuration |
+| `SQLITE_DB` | SQLite database file path |
+| `REDIS_HOST` | Redis address, including the port when needed |
+| `REDIS_USER` | Redis username |
+| `REDIS_PASS` | Redis password |
+| `REDIS_DB` | Redis database index |
+
+The effects feature uses Gemini and posts rewritten messages through a webhook. Enable the privileged **Message Content** intent in the Discord Developer Portal. The bot also needs the **Manage Webhooks** permission in channels where effects are used. **Never expose your Discord bot token or commit credentials to the repository.**
 
 ### Running Locally
 
@@ -106,13 +112,22 @@ go run ./cmd/bot
 
 ### Running with Docker
 
-Build the Docker image:
+From the repository root, build the image using the Dockerfile in the `docker` directory:
 
 ```bash
-docker build -t elysiabotbot .
+docker build -f docker/Dockerfile -t elysiabotbot .
 ```
 
-When running the container, provide the required environment variables and ensure it can access external services such as Redis.
+To keep the SQLite database beyond the container's lifetime, use a volume and provide a writable path:
+
+```bash
+docker run --rm --env-file .env \
+  -v elysiabotbot-data:/data \
+  -e SQLITE_DB=/data/elysia.sqlite3 \
+  elysiabotbot
+```
+
+The container must also be able to reach Redis. Set `REDIS_HOST` to an address accessible from inside the container; do not use `localhost` for Redis running in another container or on the host.
 
 ## Learning and Continuous Improvement
 

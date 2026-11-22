@@ -15,7 +15,6 @@ var Module = fx.Module(
 	discordclient.Invoke,
 
 	sqliteclient.Provide,
-	sqliteclient.Invoke,
 
 	redisclient.Provide,
 	redisclient.Invoke,
