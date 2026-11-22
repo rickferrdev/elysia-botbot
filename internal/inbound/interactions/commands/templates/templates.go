@@ -112,32 +112,32 @@ func (cmd *Command) TemplatesSetup(ctx *bot.InteractionContext) {
 		components.NewSelectOptionBuilder().
 			SetLabel("Criar").
 			SetValue("create").
-			SetDescription("Criar um novo template").
+			SetDescription("Criar um novo registro de incorporação").
 			Build(),
 		components.NewSelectOptionBuilder().
 			SetLabel("Obter").
 			SetValue("obtain").
-			SetDescription("Consultar um template existente").
+			SetDescription("Consultar uma incorporação existente").
 			Build(),
 		components.NewSelectOptionBuilder().
 			SetLabel("Obter todas").
 			SetValue("obtain-all").
-			SetDescription("Consultar todos os templates existentes").
+			SetDescription("Consultar todas as incorporação existentes").
 			Build(),
 		components.NewSelectOptionBuilder().
 			SetLabel("Publicar").
 			SetValue("publish").
-			SetDescription("Enviar um template para um canal").
+			SetDescription("Enviar uma incorporação para um canal").
 			Build(),
 		components.NewSelectOptionBuilder().
 			SetLabel("Atualizar").
 			SetValue("update").
-			SetDescription("Atualizar um template existente").
+			SetDescription("Atualizar uma incorporação existente").
 			Build(),
 		components.NewSelectOptionBuilder().
-			SetLabel("Excluir").
+			SetLabel("Deletar").
 			SetValue("delete").
-			SetDescription("Remover um template existente").
+			SetDescription("Remover uma incorporação existente").
 			Build(),
 	}, components.NewStringSelectMenuBuilder().
 		SetCustomID(menuID).
@@ -182,7 +182,7 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 	}
 
 	avatar := ctx.Bot.User().DisplayAvatarURL(users.AvatarURLOptions{})
-	content := "Envie um anexo (ex.: `.json`) ou cole a estrutura JSON do template nesta conversa."
+	content := "Envie um anexo (ex.: `.json`) ou cole a estrutura JSON da incorporação nesta conversa."
 	userID, channelID := ctx.User().ID, ctx.ChannelID()
 	if _, err := ctx.EditReplyComplex(rest.EditMessageParams{
 		Content:    &content,
@@ -213,11 +213,11 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 		source = "Anexo"
 		data, err = cmd.templates.HandlerAttachments(ctx.Context(), 0, message.GuildID.String(), ctx.User().ID.String(), message.Attachments[0])
 		if err != nil {
-			if errors.Is(err, templateService.ErrInvalidInput) || errors.Is(err, templateService.ErrMaxSize) {
+			if errors.Is(err, templateService.ErrInvalidTemplateInput) || errors.Is(err, templateService.ErrTemplateAttachmentTooLarge) {
 				cmd.responder.Sender(ctx, responder.WithBadArguments, err)
 				return
 			}
-			if errors.Is(err, templateService.ErrConflict) {
+			if errors.Is(err, templateService.ErrTemplateAlreadyExists) {
 				cmd.responder.Sender(ctx, responder.WithConflict, err)
 				return
 			}
@@ -229,11 +229,11 @@ func (cmd *Command) Create(ctx *bot.InteractionContext) {
 		source = "Texto (JSON)"
 		data, err = cmd.templates.HandlerMessageContent(ctx.Context(), 0, message.GuildID.String(), ctx.User().ID.String(), message.Content)
 		if err != nil {
-			if errors.Is(err, templateService.ErrInvalidInput) {
+			if errors.Is(err, templateService.ErrInvalidTemplateInput) {
 				cmd.responder.Sender(ctx, responder.WithBadArguments, err)
 				return
 			}
-			if errors.Is(err, templateService.ErrConflict) {
+			if errors.Is(err, templateService.ErrTemplateAlreadyExists) {
 				cmd.responder.Sender(ctx, responder.WithConflict, err)
 				return
 			}
@@ -256,12 +256,12 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
-		SetPlaceholder("Qual o ID do template? (ex.: 1)").
+		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
 		SetMinLength(1).
 		SetRequired(true).
 		SetStyle(components.TextInputStyleShort).
 		Build(),
-		components.NewModalBuilder().SetTitle("Consultar template").SetCustomID(menuID).Build(),
+		components.NewModalBuilder().SetTitle("Consultar incorporação").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
@@ -271,7 +271,7 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 	value := interaction.ModalValue(inputID)
 	id, err := strconv.Atoi(value)
 	if err != nil {
-		err = fmt.Errorf("%w: invalid template ID: %v", templateService.ErrInvalidInput, err)
+		err = fmt.Errorf("%w: invalid template ID: %v", templateService.ErrInvalidTemplateInput, err)
 		cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 		return
 	}
@@ -283,7 +283,7 @@ func (cmd *Command) Obtain(ctx *bot.InteractionContext) {
 
 	embed, err := cmd.templates.ObtainOne(interaction.Context(), id)
 	if err != nil {
-		if errors.Is(err, templateService.ErrNotFound) {
+		if errors.Is(err, templateService.ErrTemplateNotFound) {
 			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
@@ -311,7 +311,7 @@ func (cmd *Command) ObtainAll(ctx *bot.InteractionContext) {
 
 	data, err := cmd.templates.ObtainAll(ctx.Context(), ctx.GuildID().String(), ctx.User().ID.String())
 	if err != nil {
-		if errors.Is(err, templateService.ErrNotFound) {
+		if errors.Is(err, templateService.ErrTemplateNotFound) {
 			cmd.responder.Sender(ctx, responder.WithNotFound, err)
 			return
 		}
@@ -330,12 +330,12 @@ func (cmd *Command) Publish(ctx *bot.InteractionContext) {
 	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
-		SetPlaceholder("Qual o ID do template? (ex.: 1)").
+		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
 		SetMinLength(1).
 		SetRequired(true).
 		SetStyle(components.TextInputStyleShort).
 		Build(),
-		components.NewModalBuilder().SetTitle("Publicar template").SetCustomID(menuID).Build(),
+		components.NewModalBuilder().SetTitle("Publicar incorporação").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
@@ -345,7 +345,7 @@ func (cmd *Command) Publish(ctx *bot.InteractionContext) {
 	value := interaction.ModalValue(inputID)
 	id, err := strconv.Atoi(value)
 	if err != nil {
-		err = fmt.Errorf("%w: invalid template ID: %v", templateService.ErrInvalidInput, err)
+		err = fmt.Errorf("%w: invalid template ID: %v", templateService.ErrInvalidTemplateInput, err)
 		cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 		return
 	}
@@ -381,7 +381,7 @@ func (cmd *Command) Publish(ctx *bot.InteractionContext) {
 
 	data, err := cmd.templates.ObtainOne(interaction.Context(), id)
 	if err != nil {
-		if errors.Is(err, templateService.ErrNotFound) {
+		if errors.Is(err, templateService.ErrTemplateNotFound) {
 			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}
@@ -414,12 +414,12 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
-		SetPlaceholder("Qual o ID do template? (ex.: 1)").
+		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
 		SetMinLength(1).
 		SetRequired(true).
 		SetStyle(components.TextInputStyleShort).
 		Build(),
-		components.NewModalBuilder().SetTitle("Atualizar template").SetCustomID(menuID).Build(),
+		components.NewModalBuilder().SetTitle("Atualizar incorporação").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
@@ -429,7 +429,7 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 	value := interaction.ModalValue(inputID)
 	id, err := strconv.Atoi(value)
 	if err != nil {
-		err = fmt.Errorf("%w: invalid template ID: %v", templateService.ErrInvalidInput, err)
+		err = fmt.Errorf("%w: invalid template ID: %v", templateService.ErrInvalidTemplateInput, err)
 		cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 		return
 	}
@@ -439,7 +439,7 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 		return
 	}
 
-	content := "Envie o arquivo `.json` ou cole a nova estrutura JSON do template nesta conversa."
+	content := "Envie o arquivo `.json` ou cole a nova estrutura JSON da incorporação nesta conversa."
 	if _, err := interaction.EditReplyComplex(rest.EditMessageParams{
 		Content:    &content,
 		Components: &[]components.Component{},
@@ -469,15 +469,15 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 		source = "Anexo (.json)"
 		data, err = cmd.templates.HandlerAttachments(ctx.Context(), id, message.GuildID.String(), ctx.User().ID.String(), message.Attachments[0])
 		if err != nil {
-			if errors.Is(err, templateService.ErrInvalidInput) || errors.Is(err, templateService.ErrMaxSize) {
+			if errors.Is(err, templateService.ErrInvalidTemplateInput) || errors.Is(err, templateService.ErrTemplateAttachmentTooLarge) {
 				cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 				return
 			}
-			if errors.Is(err, templateService.ErrConflict) {
+			if errors.Is(err, templateService.ErrTemplateAlreadyExists) {
 				cmd.responder.Sender(interaction, responder.WithConflict, err)
 				return
 			}
-			if errors.Is(err, templateService.ErrNotFound) {
+			if errors.Is(err, templateService.ErrTemplateNotFound) {
 				cmd.responder.Sender(interaction, responder.WithNotFound, err)
 				return
 			}
@@ -489,15 +489,15 @@ func (cmd *Command) Update(ctx *bot.InteractionContext) {
 		source = "Texto (JSON)"
 		data, err = cmd.templates.HandlerMessageContent(ctx.Context(), id, message.GuildID.String(), ctx.User().ID.String(), message.Content)
 		if err != nil {
-			if errors.Is(err, templateService.ErrInvalidInput) {
+			if errors.Is(err, templateService.ErrInvalidTemplateInput) {
 				cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 				return
 			}
-			if errors.Is(err, templateService.ErrConflict) {
+			if errors.Is(err, templateService.ErrTemplateAlreadyExists) {
 				cmd.responder.Sender(interaction, responder.WithConflict, err)
 				return
 			}
-			if errors.Is(err, templateService.ErrNotFound) {
+			if errors.Is(err, templateService.ErrTemplateNotFound) {
 				cmd.responder.Sender(interaction, responder.WithNotFound, err)
 				return
 			}
@@ -521,12 +521,12 @@ func (cmd *Command) Delete(ctx *bot.InteractionContext) {
 	interaction, err := cmd.flow.AwaitSimpleTextModal(ctx, components.NewTextInputBuilder().
 		SetCustomID(inputID).
 		SetLabel("Identificador").
-		SetPlaceholder("Qual o ID do template? (ex.: 1)").
+		SetPlaceholder("Qual o ID da incorporação? e.g. 1").
 		SetMinLength(1).
 		SetRequired(true).
 		SetStyle(components.TextInputStyleShort).
 		Build(),
-		components.NewModalBuilder().SetTitle("Excluir template").SetCustomID(menuID).Build(),
+		components.NewModalBuilder().SetTitle("Deletar incorporação").SetCustomID(menuID).Build(),
 	)
 	if err != nil {
 		cmd.responder.Sender(ctx, responder.WithInternal, err)
@@ -536,7 +536,7 @@ func (cmd *Command) Delete(ctx *bot.InteractionContext) {
 	value := interaction.ModalValue(inputID)
 	id, err := strconv.Atoi(value)
 	if err != nil {
-		err = fmt.Errorf("%w: invalid template ID: %v", templateService.ErrInvalidInput, err)
+		err = fmt.Errorf("%w: invalid template ID: %v", templateService.ErrInvalidTemplateInput, err)
 		cmd.responder.Sender(interaction, responder.WithBadArguments, err)
 		return
 	}
@@ -548,7 +548,7 @@ func (cmd *Command) Delete(ctx *bot.InteractionContext) {
 
 	_, err = cmd.templates.DeleteOne(interaction.Context(), id)
 	if err != nil {
-		if errors.Is(err, templateService.ErrNotFound) {
+		if errors.Is(err, templateService.ErrTemplateNotFound) {
 			cmd.responder.Sender(interaction, responder.WithNotFound, err)
 			return
 		}

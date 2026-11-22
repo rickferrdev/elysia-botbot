@@ -8,7 +8,6 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/autoreactions"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/redisclient"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"go.uber.org/fx"
 )
@@ -18,41 +17,46 @@ var Invoke = fx.Invoke(New)
 type FxArgs struct {
 	fx.In
 
-	RedisClient   *redisclient.RedisClient
+	Logger        *slog.Logger
 	DiscordClient *discordclient.DiscordClient
 	AutoReactions autoreactions.Interface
 }
 
 type Event struct {
-	redis         redisclient.RedisClient
 	client        *discordclient.DiscordClient
 	logger        *slog.Logger
 	autoreactions autoreactions.Interface
 }
 
-func New(FxArgs FxArgs) {
+func New(args FxArgs) {
 	event := Event{
-		autoreactions: FxArgs.AutoReactions,
-		client:        FxArgs.DiscordClient,
+		logger:        args.Logger,
+		autoreactions: args.AutoReactions,
+		client:        args.DiscordClient,
 	}
 
-	FxArgs.DiscordClient.Bot.OnMessageCreate(func(ctx *bot.MessageContext) {
+	args.DiscordClient.Bot.OnMessageCreate(func(ctx *bot.MessageContext) {
 		event.AutoReactionsMessageCreate(ctx)
 	})
 }
 
-func (command *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
+func (event *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 	if ctx.Author.Bot {
 		return
 	}
 
-	data, err := command.autoreactions.ObtainOne(ctx.Context(), ctx.GuildID.String(), ctx.ChannelID().String())
+	data, err := event.autoreactions.ObtainOne(ctx.Context(), ctx.GuildID.String(), ctx.ChannelID().String())
 	if err != nil {
 		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
 			return
 		}
 
-		command.logger.Error("failed to get autoreaction", slog.String("error", err.Error()))
+		event.logger.Error(
+			"failed to get auto-reaction",
+			slog.String("guild_id", ctx.GuildID.String()),
+			slog.String("channel_id", ctx.ChannelID().String()),
+			slog.Any("error", err),
+		)
 		return
 	}
 
@@ -63,7 +67,12 @@ func (command *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 		}
 
 		if err := ctx.React(data.Emoji); err != nil {
-			command.logger.Error(err.Error())
+			event.logger.Error(
+				"failed to add auto-reaction",
+				slog.String("guild_id", ctx.GuildID.String()),
+				slog.String("channel_id", ctx.ChannelID().String()),
+				slog.Any("error", err),
+			)
 		}
 		return
 
@@ -73,7 +82,12 @@ func (command *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 		}
 
 		if err := ctx.React(data.Emoji); err != nil {
-			command.logger.Error(err.Error())
+			event.logger.Error(
+				"failed to add auto-reaction",
+				slog.String("guild_id", ctx.GuildID.String()),
+				slog.String("channel_id", ctx.ChannelID().String()),
+				slog.Any("error", err),
+			)
 		}
 		return
 

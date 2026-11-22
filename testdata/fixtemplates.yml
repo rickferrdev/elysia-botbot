@@ -2,8 +2,8 @@
   rows:
     - _id: one
       id: 1
-      guild_id: "guild"
-      author_id: "author"
+      guild_id: "2123433400718065664"
+      author_id: "2123433441100824576"
       created_at: "{{ now }}"
       updated_at: "{{ now }}"
 

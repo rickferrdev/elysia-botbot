@@ -7,5 +7,6 @@ import (
 
 var Module = fx.Module(
 	"outbound",
+
 	repositories.Module,
 )

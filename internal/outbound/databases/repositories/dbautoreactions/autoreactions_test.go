@@ -58,46 +58,55 @@ func (test *test) loadRow(id string) any {
 }
 
 func (test *test) TestCreateOne() {
-	expect := domain.AutoReactions{
+	schema := domain.AutoReaction{
 		ID:        3,
-		GuildID:   "one",
-		ChannelID: "channel_three",
+		GuildID:   "2123433400718065664",
+		ChannelID: "2123433400718065672",
 		Type:      domain.AutoReactionTypeMessage,
 		Emoji:     "🤖",
 	}
 
-	actual, err := test.storage.CreateOne(context.Background(), expect)
+	actual, err := test.storage.CreateOne(context.Background(), schema)
 	test.NoError(err)
 	test.NotNil(actual)
-	test.Equal(actual, &expect)
+
+	expect, err := test.storage.GetOne(context.Background(), actual.GuildID, actual.ChannelID)
+	test.Nil(err)
+	test.NotNil(expect)
+	test.Equal(expect, actual)
 }
 
 func (test *test) TestCreateUpsert() {
-	expect := domain.AutoReactions{
+	schema := domain.AutoReaction{
 		ID:        3,
-		GuildID:   "one",
-		ChannelID: "channel_two",
+		GuildID:   "2123433400718065664",
+		ChannelID: "2123433400718065670",
 		Type:      domain.AutoReactionTypeMessage,
 		Emoji:     "🩴",
 	}
 
-	actual, err := test.storage.CreateOne(context.Background(), expect)
+	actual, err := test.storage.CreateOne(context.Background(), schema)
 	test.NoError(err)
 	test.NotNil(actual)
-	test.Equal(actual, &expect)
+
+	schema.Emoji = "❤️"
+	expect, err := test.storage.CreateOne(context.Background(), schema)
+	test.NoError(err)
+	test.NotNil(expect)
+	test.Equal(expect, &schema)
 }
 
 func (test *test) TestGetOne() {
 	test.loadFixture()
 	expect := test.loadRow("SchemaAutoReactions.one").(*SchemaAutoReactions).NewDomainAutoReactions()
-	actual, err := test.storage.GetOne(context.Background(), "one", "channel_one")
+	actual, err := test.storage.GetOne(context.Background(), "2123433400718065664", "2123433400718065670")
 	test.NoError(err)
 	test.NotNil(actual)
 	test.Equal(expect, actual)
 }
 
 func (test *test) TestGetOneNotFound() {
-	expect, err := test.storage.GetOne(context.Background(), "one", "channel_one")
+	expect, err := test.storage.GetOne(context.Background(), "2123433400718065664", "2123433400718065670")
 	test.Error(err)
 	test.True(core.IsCode(err, repoerrors.CodeSqlNoRows))
 	test.Nil(expect)
@@ -105,20 +114,21 @@ func (test *test) TestGetOneNotFound() {
 
 func (test *test) TestGetAll() {
 	test.loadFixture()
-	autoReactionsOne, autoReactionsTwo := test.loadRow("SchemaAutoReactions.one").(*SchemaAutoReactions), test.loadRow("SchemaAutoReactions.two").(*SchemaAutoReactions)
-	expect := []domain.AutoReactions{
+	autoReactionsOne, autoReactionsTwo := test.loadRow("SchemaAutoReactions.one").(*SchemaAutoReactions),
+		test.loadRow("SchemaAutoReactions.two").(*SchemaAutoReactions)
+	expect := []domain.AutoReaction{
 		*autoReactionsOne.NewDomainAutoReactions(),
 		*autoReactionsTwo.NewDomainAutoReactions(),
 	}
 
-	actual, err := test.storage.GetAll(context.Background(), "one")
+	actual, err := test.storage.GetAll(context.Background(), "2123433400718065664")
 	test.NoError(err)
 	test.NotNil(actual)
 	test.Equal(expect, actual)
 }
 
 func (test *test) TestGetAllNotFound() {
-	actual, err := test.storage.GetAll(context.Background(), "one")
+	actual, err := test.storage.GetAll(context.Background(), "2123433400718065664")
 	test.Error(err)
 	test.Empty(actual)
 	test.True(core.IsCode(err, repoerrors.CodeSqlNoRows))
@@ -126,10 +136,10 @@ func (test *test) TestGetAllNotFound() {
 
 func (test *test) TestUpdateOne() {
 	test.loadFixture()
-	expect := &domain.AutoReactions{
+	expect := &domain.AutoReaction{
 		ID:        1,
-		GuildID:   "one",
-		ChannelID: "channel_one",
+		GuildID:   "2123433400718065664",
+		ChannelID: "2123433400718065670",
 		Type:      domain.AutoReactionTypeAttachment,
 		Emoji:     "🤖",
 	}
@@ -137,15 +147,14 @@ func (test *test) TestUpdateOne() {
 	actual, err := test.storage.UpdateOne(context.Background(), *expect)
 	test.NoError(err)
 	test.NotNil(actual)
-
 	test.Equal(expect, actual)
 }
 
 func (test *test) TestUpdateNotFound() {
-	expect := &domain.AutoReactions{
+	expect := &domain.AutoReaction{
 		ID:        10,
-		GuildID:   "one",
-		ChannelID: "channel_one",
+		GuildID:   "2123433400718065664",
+		ChannelID: "2123433400718065670",
 		Type:      domain.AutoReactionTypeAttachment,
 		Emoji:     "🤖",
 	}
@@ -159,14 +168,14 @@ func (test *test) TestUpdateNotFound() {
 func (test *test) TestDeleteOne() {
 	test.loadFixture()
 	expect := test.loadRow("SchemaAutoReactions.one").(*SchemaAutoReactions).NewDomainAutoReactions()
-	actual, err := test.storage.DeleteOne(context.Background(), "one", "channel_one")
+	actual, err := test.storage.DeleteOne(context.Background(), "2123433400718065664", "2123433400718065670")
 	test.NoError(err)
 	test.NotNil(actual)
 	test.Equal(expect, actual)
 }
 
 func (test *test) TestDeleteOneNotFound() {
-	expect, err := test.storage.DeleteOne(context.Background(), "one", "channel_one")
+	expect, err := test.storage.DeleteOne(context.Background(), "2123433400718065664", "2123433400718065670")
 	test.Error(err)
 	test.True(core.IsCode(err, repoerrors.CodeSqlNoRows))
 	test.Nil(expect)

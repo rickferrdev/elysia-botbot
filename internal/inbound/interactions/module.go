@@ -8,6 +8,7 @@ import (
 
 var Module = fx.Module(
 	"interactions",
+
 	commands.Module,
 	events.Module,
 )

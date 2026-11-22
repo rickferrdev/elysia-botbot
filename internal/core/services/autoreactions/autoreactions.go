@@ -2,65 +2,99 @@ package autoreactions
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/rickferrdev/elysia-botbot/internal/core"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
-	"github.com/rickferrdev/elysia-botbot/internal/infra/redisclient"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbautoreactions"
+	"github.com/rickferrdev/elysia-botbot/internal/platform/cache"
 	"go.uber.org/fx"
 )
 
 var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
 
+var (
+	ErrAutoReactionNotFound      = errors.New("auto-reaction not found")
+	ErrAutoReactionAlreadyExists = errors.New("auto-reaction already exists")
+)
+
 type (
 	Service struct {
-		redis         *redisclient.RedisClient
+		logger        *slog.Logger
+		cache         cache.Interface
 		autoreactions dbautoreactions.Interface
 	}
 
 	FxArgs struct {
 		fx.In
 
-		RedisClient     *redisclient.RedisClient
+		Logger          *slog.Logger
+		Cache           cache.Interface
 		AutoReactionsDB dbautoreactions.Interface
 	}
 )
 
 type Interface interface {
-	CreateOne(ctx context.Context, autoreaction domain.AutoReactions) (*domain.AutoReactions, error)
-	ObtainOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error)
-	ObtainAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error)
-	UpdateOne(ctx context.Context, autoreaction domain.AutoReactions) (*domain.AutoReactions, error)
-	DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error)
+	ObtainAll(ctx context.Context, guildID string) ([]domain.AutoReaction, error)
+	ObtainOne(ctx context.Context, guildID, channelID string) (*domain.AutoReaction, error)
+	CreateOne(ctx context.Context, autoreaction domain.AutoReaction) (*domain.AutoReaction, error)
+	UpdateOne(ctx context.Context, autoreaction domain.AutoReaction) (*domain.AutoReaction, error)
+	DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReaction, error)
 }
 
-func New(FxArgs FxArgs) *Service {
+func New(args FxArgs) *Service {
 	service := Service{
-		redis:         FxArgs.RedisClient,
-		autoreactions: FxArgs.AutoReactionsDB,
+		logger:        args.Logger,
+		cache:         args.Cache,
+		autoreactions: args.AutoReactionsDB,
 	}
 
 	return &service
 }
 
-func (service *Service) CreateOne(ctx context.Context, autoreaction domain.AutoReactions) (*domain.AutoReactions, error) {
-	result, err := service.autoreactions.CreateOne(ctx, autoreaction)
+const autoreactionsCacheTTL = time.Minute * 10
+
+func (service *Service) getCacheKey(guildID, channelID string) string {
+	return "autoreactions:" + guildID + ":" + channelID
+}
+
+func (service *Service) getAllCacheKey(guildID string) string {
+	return "autoreactions:guild:" + guildID
+}
+
+func (service *Service) CreateOne(ctx context.Context, autoreaction domain.AutoReaction) (*domain.AutoReaction, error) {
+	data, err := service.autoreactions.CreateOne(ctx, autoreaction)
 	if err != nil {
 		if core.IsCode(err, repoerrors.CodeSqlConflict) {
-			return nil, fmt.Errorf("%w: %w", ErrConflict, err)
+			return nil, fmt.Errorf("%w: %w", ErrAutoReactionAlreadyExists, err)
 		}
 		return nil, err
 	}
 
-	_ = service.delCache(ctx, autoreaction.GuildID, autoreaction.ChannelID)
-	return result, nil
+	err = service.cache.Del(
+		ctx,
+		service.getCacheKey(autoreaction.GuildID, autoreaction.ChannelID),
+		service.getAllCacheKey(autoreaction.GuildID),
+	)
+	if err != nil {
+		service.logger.Error(
+			"failed to invalidate auto-reaction cache",
+			slog.String("operation", "create"),
+			slog.String("guild_id", autoreaction.GuildID),
+			slog.String("channel_id", autoreaction.ChannelID),
+			slog.Any("error", err),
+		)
+	}
+	return data, nil
 }
 
-func (service *Service) ObtainOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
-	var cached domain.AutoReactions
-	if found, err := service.getCache(
+func (service *Service) ObtainOne(ctx context.Context, guildID, channelID string) (*domain.AutoReaction, error) {
+	var cached domain.AutoReaction
+	if found, err := service.cache.GetWithJson(
 		ctx,
 		service.getCacheKey(guildID, channelID),
 		&cached,
@@ -68,46 +102,81 @@ func (service *Service) ObtainOne(ctx context.Context, guildID, channelID string
 		return &cached, nil
 	}
 
-	result, err := service.autoreactions.GetOne(ctx, guildID, channelID)
+	data, err := service.autoreactions.GetOne(ctx, guildID, channelID)
 	if core.IsCode(err, repoerrors.CodeSqlNoRows) {
-		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		return nil, fmt.Errorf("%w: %w", ErrAutoReactionNotFound, err)
 	}
 
-	err = service.setCache(
+	err = service.cache.SetWithJson(
 		ctx,
 		service.getCacheKey(guildID, channelID),
-		result,
+		data,
+		autoreactionsCacheTTL,
 	)
+	if err != nil {
+		service.logger.Error(
+			"failed to cache auto-reaction",
+			slog.String("guild_id", guildID),
+			slog.String("channel_id", channelID),
+			slog.Any("error", err),
+		)
+	}
 
-	return result, err
+	return data, nil
 }
 
-func (service *Service) UpdateOne(ctx context.Context, autoreaction domain.AutoReactions) (*domain.AutoReactions, error) {
-	result, err := service.autoreactions.UpdateOne(ctx, autoreaction)
+func (service *Service) UpdateOne(ctx context.Context, autoreaction domain.AutoReaction) (*domain.AutoReaction, error) {
+	data, err := service.autoreactions.UpdateOne(ctx, autoreaction)
 	if err != nil {
 		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
-			return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+			return nil, fmt.Errorf("%w: %w", ErrAutoReactionNotFound, err)
 		}
 		return nil, err
 	}
 
-	_ = service.delCache(ctx, autoreaction.GuildID, autoreaction.ChannelID)
-	return result, nil
+	err = service.cache.Del(
+		ctx,
+		service.getCacheKey(autoreaction.GuildID, autoreaction.ChannelID),
+		service.getAllCacheKey(autoreaction.GuildID),
+	)
+	if err != nil {
+		service.logger.Error(
+			"failed to invalidate auto-reaction cache",
+			slog.String("operation", "update"),
+			slog.String("guild_id", autoreaction.GuildID),
+			slog.String("channel_id", autoreaction.ChannelID),
+			slog.Any("error", err),
+		)
+	}
+	return data, nil
 }
 
-func (service *Service) DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReactions, error) {
-	result, err := service.autoreactions.DeleteOne(ctx, guildID, channelID)
+func (service *Service) DeleteOne(ctx context.Context, guildID, channelID string) (*domain.AutoReaction, error) {
+	data, err := service.autoreactions.DeleteOne(ctx, guildID, channelID)
 	if core.IsCode(err, repoerrors.CodeSqlNoRows) {
-		return nil, fmt.Errorf("%w: %w", ErrNotFound, err)
+		return nil, fmt.Errorf("%w: %w", ErrAutoReactionNotFound, err)
 	}
 
-	_ = service.delCache(ctx, guildID, channelID)
-	return result, err
+	err = service.cache.Del(
+		ctx,
+		service.getCacheKey(guildID, channelID),
+		service.getAllCacheKey(guildID),
+	)
+	if err != nil {
+		service.logger.Error(
+			"failed to invalidate auto-reaction cache",
+			slog.String("operation", "delete"),
+			slog.String("guild_id", guildID),
+			slog.String("channel_id", channelID),
+			slog.Any("error", err),
+		)
+	}
+	return data, nil
 }
 
-func (service *Service) ObtainAll(ctx context.Context, guildID string) ([]domain.AutoReactions, error) {
-	var cached []domain.AutoReactions
-	if found, err := service.getCache(
+func (service *Service) ObtainAll(ctx context.Context, guildID string) ([]domain.AutoReaction, error) {
+	var cached []domain.AutoReaction
+	if found, err := service.cache.GetWithJson(
 		ctx,
 		service.getAllCacheKey(guildID),
 		&cached,
@@ -118,16 +187,24 @@ func (service *Service) ObtainAll(ctx context.Context, guildID string) ([]domain
 	result, err := service.autoreactions.GetAll(ctx, guildID)
 	if err != nil {
 		if core.IsCode(err, repoerrors.CodeSqlNoRows) {
-			return nil, ErrNotFound
+			return nil, ErrAutoReactionNotFound
 		}
 
 		return nil, err
 	}
 
-	err = service.setCache(
+	err = service.cache.SetWithJson(
 		ctx,
 		service.getAllCacheKey(guildID),
 		result,
+		autoreactionsCacheTTL,
 	)
+	if err != nil {
+		service.logger.Error(
+			"failed to cache auto-reactions",
+			slog.String("guild_id", guildID),
+			slog.Any("error", err),
+		)
+	}
 	return result, nil
 }

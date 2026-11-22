@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Elysia-BotBot community message flow</title>
+  <desc id="desc">A Discord-style conversation is transformed by Elysia-BotBot, surrounded by auto-reaction, AI effect, and template indicators.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07130D"/>
+      <stop offset="0.55" stop-color="#10251A"/>
+      <stop offset="1" stop-color="#07130D"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2EA66B"/>
+      <stop offset="1" stop-color="#8AF0B1"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#2EA66B" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#2EA66B" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#020805" flood-opacity="0.45"/>
+    </filter>
+    <style>
+      text { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+      .eyebrow { fill: #8AF0B1; font-size: 13px; font-weight: 700; letter-spacing: 2.4px; }
+      .headline { fill: #F1FFF6; font-size: 43px; font-weight: 750; letter-spacing: -1.5px; }
+      .subhead { fill: #A7BBAE; font-size: 16px; }
+      .chip-label { fill: #CDEAD7; font-size: 11px; font-weight: 700; letter-spacing: 1px; }
+      .float { animation: float 6s ease-in-out infinite; }
+      .float-late { animation: float 7s ease-in-out 1s infinite; }
+      .pulse { animation: pulse 3.2s ease-in-out infinite; }
+      .flow { stroke-dasharray: 5 9; animation: flow 2.5s linear infinite; }
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 0.55; }
+        50% { opacity: 1; }
+      }
+      @keyframes flow { to { stroke-dashoffset: -28; } }
+      @media (prefers-reduced-motion: reduce) {
+        .float, .float-late, .pulse, .flow { animation: none; }
+      }
+    </style>
+  </defs>
+
+  <rect width="1200" height="360" rx="24" fill="url(#background)"/>
+  <circle cx="1035" cy="170" r="285" fill="url(#glow)"/>
+  <path d="M0 292C196 238 321 357 506 302s297-145 443-88 187 42 251 4v142H0z" fill="#143522" opacity="0.38"/>
+  <path d="M0 320c197-57 333 39 518-3s318-122 467-74 159 43 215 10" fill="none" stroke="#28613D" stroke-width="1" opacity="0.45"/>
+  <circle cx="595" cy="72" r="2" fill="#8AF0B1" class="pulse"/>
+  <circle cx="623" cy="290" r="2" fill="#8AF0B1" class="pulse"/>
+  <circle cx="1115" cy="53" r="3" fill="#8AF0B1" class="pulse"/>
+
+  <g>
+    <text x="68" y="82" class="eyebrow">A DISCORD BOT EXPERIENCE</text>
+    <text x="66" y="145" class="headline">Chat, with a</text>
+    <text x="66" y="196" class="headline">little <tspan fill="#68D996">magic.</tspan></text>
+    <text x="69" y="231" class="subhead">Community tools that make every message feel alive.</text>
+
+    <g transform="translate(68 261)">
+      <rect width="158" height="38" rx="19" fill="#11251A" stroke="#28563A"/>
+      <circle cx="22" cy="19" r="4" fill="#68D996"/>
+      <text x="35" y="24" class="chip-label">AUTO-REACTIONS</text>
+    </g>
+    <g transform="translate(236 261)">
+      <rect width="130" height="38" rx="19" fill="#11251A" stroke="#28563A"/>
+      <circle cx="22" cy="19" r="4" fill="#68D996"/>
+      <text x="35" y="24" class="chip-label">AI EFFECTS</text>
+    </g>
+    <g transform="translate(376 261)">
+      <rect width="124" height="38" rx="19" fill="#11251A" stroke="#28563A"/>
+      <circle cx="22" cy="19" r="4" fill="#68D996"/>
+      <text x="35" y="24" class="chip-label">TEMPLATES</text>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="650" y="42" width="490" height="276" rx="20" fill="#0B1510" stroke="#315940" stroke-width="1.2"/>
+    <path d="M670 42h450a20 20 0 0 1 20 20v34H650V62a20 20 0 0 1 20-20z" fill="#122219"/>
+    <circle cx="676" cy="69" r="4" fill="#427B55"/>
+    <circle cx="691" cy="69" r="4" fill="#427B55"/>
+    <circle cx="706" cy="69" r="4" fill="#427B55"/>
+    <text x="733" y="73" fill="#B5C9BA" font-size="12" font-weight="600"># general</text>
+    <rect x="1020" y="57" width="97" height="24" rx="12" fill="#193D28"/>
+    <circle cx="1035" cy="69" r="3" fill="#70E79E" class="pulse"/>
+    <text x="1045" y="73" fill="#9FE9B8" font-size="9" font-weight="700" letter-spacing="0.8">LIVE FLOW</text>
+
+    <g class="float">
+      <circle cx="687" cy="127" r="17" fill="#224832"/>
+      <text x="687" y="132" text-anchor="middle" fill="#B8F4CB" font-size="13" font-weight="700">R</text>
+      <text x="714" y="119" fill="#D6E4D9" font-size="11" font-weight="700">rin</text>
+      <text x="714" y="139" fill="#A8B9AC" font-size="13">Hey, everyone!</text>
+    </g>
+
+    <path d="M736 158c42 22 128 22 170 0" fill="none" stroke="#56C982" stroke-width="2" class="flow"/>
+    <circle cx="821" cy="168" r="4" fill="#8AF0B1" class="pulse"/>
+
+    <g class="float-late">
+      <rect x="682" y="185" width="425" height="91" rx="14" fill="#12271A" stroke="#2A6740"/>
+      <circle cx="710" cy="209" r="11" fill="url(#accent)"/>
+      <path d="M706 209h8M710 205v8" stroke="#092012" stroke-width="1.5" stroke-linecap="round"/>
+      <text x="735" y="213" fill="#9FE9B8" font-size="10" font-weight="700" letter-spacing="1">ELYSIA BOT  /  AI EFFECT</text>
+      <text x="710" y="247" fill="#EFFCF2" font-size="17" font-weight="600">Hii~ welcome, nya!</text>
+      <g transform="translate(1018 225)">
+        <rect width="67" height="26" rx="13" fill="#1D3D28" stroke="#356B46"/>
+        <path d="M14 13l3 3 6-7" fill="none" stroke="#8AF0B1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="34" y="17" fill="#BFEACB" font-size="10" font-weight="700">SENT</text>
+      </g>
+    </g>
+
+    <g class="float">
+      <rect x="882" y="291" width="236" height="38" rx="19" fill="#102219" stroke="#315940"/>
+      <circle cx="903" cy="310" r="10" fill="#1B472C"/>
+      <path d="M899 310h8M903 306v8" stroke="#8AF0B1" stroke-width="1.3" stroke-linecap="round"/>
+      <text x="921" y="314" fill="#B8D7C1" font-size="10" font-weight="700" letter-spacing="0.7">MESSAGE  →  REACTION  →  MAGIC</text>
+    </g>
+  </g>
+
+  <g class="float-late" opacity="0.9">
+    <circle cx="1164" cy="129" r="16" fill="#1B472C" stroke="#39794D"/>
+    <path d="M1164 119l2.4 7.6 7.6 2.4-7.6 2.4-2.4 7.6-2.4-7.6-7.6-2.4 7.6-2.4z" fill="#8AF0B1"/>
+  </g>
+  <g class="pulse" opacity="0.8">
+    <circle cx="624" cy="214" r="7" fill="#1C492E"/>
+    <circle cx="624" cy="214" r="2" fill="#8AF0B1"/>
+  </g>
+</svg>

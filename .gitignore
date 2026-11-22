@@ -8,3 +8,6 @@ coverage.out
 .vscode/
 local.db
 *.db
+*.sqlite
+*.sqlite3
+repomix-output.xml
