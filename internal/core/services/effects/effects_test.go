@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os"
 	"testing"
 
 	"github.com/rickferrdev/elysia-botbot/internal/config/env"
@@ -165,6 +166,11 @@ func (test *test) TestDeleteOneNotFound() {
 
 func (test *test) TestGenerate() {
 	ctx := context.Background()
+
+	prompt, err := test.service.CollectPrompt(domain.EffectTypeKwaii)
+	test.NoError(err)
+	test.NotEmpty(prompt)
+
 	expect := &genai.GenerateContentResponse{Text: "rewritten"}
 	config := genai.GenerateContentConfig{
 		SystemInstruction: prompt,
@@ -174,13 +180,18 @@ func (test *test) TestGenerate() {
 
 	test.genai.EXPECT().GenerateContent(ctx, "input", config).Return(expect, nil)
 
-	actual, err := test.service.Generate(ctx, "input")
+	actual, err := test.service.Generate(ctx, "input", domain.EffectTypeKwaii)
 	test.NoError(err)
 	test.Equal(expect.Text, actual)
 }
 
 func (test *test) TestGenerateFailure() {
 	ctx := context.Background()
+
+	prompt, err := test.service.CollectPrompt(domain.EffectTypeKwaii)
+	test.NoError(err)
+	test.NotEmpty(prompt)
+
 	generationErr := errors.New("generation failed")
 	config := genai.GenerateContentConfig{
 		SystemInstruction: prompt,
@@ -190,7 +201,7 @@ func (test *test) TestGenerateFailure() {
 
 	test.genai.EXPECT().GenerateContent(ctx, "input", config).Return(nil, generationErr)
 
-	actual, err := test.service.Generate(ctx, "input")
+	actual, err := test.service.Generate(ctx, "input", domain.EffectTypeKwaii)
 	test.Empty(actual)
 	test.ErrorIs(err, ErrGenerateOperationFailed)
 	test.ErrorIs(err, generationErr)
@@ -198,6 +209,11 @@ func (test *test) TestGenerateFailure() {
 
 func (test *test) TestGenerateEmptyResponse() {
 	ctx := context.Background()
+
+	prompt, err := test.service.CollectPrompt(domain.EffectTypeKwaii)
+	test.NoError(err)
+	test.NotEmpty(prompt)
+
 	config := genai.GenerateContentConfig{
 		SystemInstruction: prompt,
 		Temperature:       Temperature,
@@ -206,9 +222,30 @@ func (test *test) TestGenerateEmptyResponse() {
 
 	test.genai.EXPECT().GenerateContent(ctx, "input", config).Return(&genai.GenerateContentResponse{Text: "  "}, nil)
 
-	actual, err := test.service.Generate(ctx, "input")
+	actual, err := test.service.Generate(ctx, "input", domain.EffectTypeKwaii)
 	test.Empty(actual)
 	test.ErrorIs(err, ErrGenerateOperationFailed)
+}
+
+func (test *test) TestCollectPrompt() {
+	expect, err := os.ReadFile("./prompts/kwaii.pt-BR.txt")
+	test.NoError(err)
+	workingDir, err := os.Getwd()
+	test.NoError(err)
+	test.NoError(os.Chdir(test.T().TempDir()))
+	defer func() {
+		if err := os.Chdir(workingDir); err != nil {
+			test.T().Errorf("failed to restore working directory: %v", err)
+		}
+	}()
+
+	actual, err := test.service.CollectPrompt(domain.EffectTypeKwaii)
+	test.NoError(err)
+	test.Equal(string(expect), actual)
+
+	christmasPrompt, err := test.service.CollectPrompt(domain.EffectTypeChristmas)
+	test.NoError(err)
+	test.NotEmpty(christmasPrompt)
 }
 
 func TestRunner(t *testing.T) {

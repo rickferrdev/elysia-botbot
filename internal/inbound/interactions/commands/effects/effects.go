@@ -330,6 +330,11 @@ func (cmd *Command) selectEffect(ctx *bot.InteractionContext) (*bot.InteractionC
 			SetValue(string(domain.EffectTypeKwaii)).
 			SetDescription("Transforma as mensagens do membro em falas kawaii.").
 			Build(),
+		components.NewSelectOptionBuilder().
+			SetLabel("Christmas").
+			SetDescription("Transforma as mensagens dos membros em falas natalinas.").
+			SetValue("christmas").
+			Build(),
 	}, components.NewStringSelectMenuBuilder().
 		SetCustomID(menuID).
 		SetMaxValues(1).
@@ -339,11 +344,11 @@ func (cmd *Command) selectEffect(ctx *bot.InteractionContext) (*bot.InteractionC
 	if err != nil {
 		return nil, "", err
 	}
-	if len(interaction.Values()) != 1 || interaction.Values()[0] != string(domain.EffectTypeKwaii) {
+	if len(interaction.Values()) != 1 || interaction.Values()[0] == "" {
 		return interaction, "", errors.New("invalid effect type selection")
 	}
 
-	return interaction, domain.EffectTypeKwaii, nil
+	return interaction, domain.EffectType(interaction.Values()[0]), nil
 }
 
 func (cmd *Command) selectedUserID(ctx *bot.InteractionContext) (string, error) {

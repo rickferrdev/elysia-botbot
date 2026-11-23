@@ -66,7 +66,7 @@ func (event *Event) MessageCreate(ctx *bot.MessageContext) {
 	timeout, cancel := context.WithTimeout(ctx.Context(), 30*time.Second)
 	defer cancel()
 
-	content, err := event.service.Generate(timeout, ctx.Content)
+	content, err := event.service.Generate(timeout, ctx.Content, effect.Type)
 	if err != nil {
 		event.logger.Error("failed to transform message with Gemini", slog.Any("error", err))
 		return

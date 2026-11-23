@@ -2,7 +2,7 @@ package effects
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,9 +21,6 @@ import (
 )
 
 var Provide = fx.Provide(fx.Annotate(New, fx.As(new(Interface))))
-
-//go:embed prompts/rewrite.pt-BR.txt
-var prompt string
 
 const (
 	Temperature     = 1.0
@@ -59,7 +56,7 @@ type (
 )
 
 type Interface interface {
-	Generate(ctx context.Context, content string) (string, error)
+	Generate(ctx context.Context, content string, effect domain.EffectType) (string, error)
 
 	ObtainAll(ctx context.Context, guildID string) (*[]domain.Effect, error)
 	ObtainOne(ctx context.Context, guildID, userID string) (*domain.Effect, error)
@@ -82,6 +79,9 @@ func New(args FxArgs) *Service {
 }
 
 const effectCacheTTL = time.Minute * 10
+
+//go:embed prompts/*.pt-BR.txt
+var promptFiles embed.FS
 
 func (service *Service) getCacheKey(guildID, userID string) string {
 	return fmt.Sprintf("effect:%v:%v", guildID, userID)
@@ -241,7 +241,11 @@ func (service *Service) DeleteOne(ctx context.Context, guildID, userID string) (
 	return data, nil
 }
 
-func (service *Service) Generate(ctx context.Context, content string) (string, error) {
+func (service *Service) Generate(ctx context.Context, content string, effect domain.EffectType) (string, error) {
+	prompt, err := service.CollectPrompt(effect)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrGenerateOperationFailed, err)
+	}
 	data, err := service.genai.GenerateContent(ctx, content, genai.GenerateContentConfig{
 		SystemInstruction: prompt,
 		Temperature:       1.0,
@@ -259,4 +263,14 @@ func (service *Service) Generate(ctx context.Context, content string) (string, e
 	}
 
 	return data.Text, nil
+}
+
+func (service *Service) CollectPrompt(effect domain.EffectType) (string, error) {
+	path := fmt.Sprintf("prompts/%v.pt-BR.txt", effect)
+	content, err := promptFiles.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	return string(content), nil
 }

@@ -7,7 +7,10 @@ type (
 	EffectScope string
 )
 
-var EffectTypeKwaii EffectType = "kwaii"
+var (
+	EffectTypeKwaii     EffectType = "kwaii"
+	EffectTypeChristmas EffectType = "christmas"
+)
 
 type Effect struct {
 	ID         int
