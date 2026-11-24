@@ -9,6 +9,7 @@ import (
 
 	"github.com/rickferrdev/elysia-botbot/internal/core"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/logger"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbautoreactions"
 	"github.com/rickferrdev/elysia-botbot/internal/platform/cache"
@@ -82,7 +83,7 @@ func (service *Service) CreateOne(ctx context.Context, autoreaction domain.AutoR
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to invalidate auto-reaction cache",
+			logger.AutoReactionFailedInvalidateCache,
 			slog.String("operation", "create"),
 			slog.String("guild_id", autoreaction.GuildID),
 			slog.String("channel_id", autoreaction.ChannelID),
@@ -115,7 +116,7 @@ func (service *Service) ObtainOne(ctx context.Context, guildID, channelID string
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to cache auto-reaction",
+			logger.AutoReactionFailedCache,
 			slog.String("guild_id", guildID),
 			slog.String("channel_id", channelID),
 			slog.Any("error", err),
@@ -141,7 +142,7 @@ func (service *Service) UpdateOne(ctx context.Context, autoreaction domain.AutoR
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to invalidate auto-reaction cache",
+			logger.AutoReactionFailedInvalidateCache,
 			slog.String("operation", "update"),
 			slog.String("guild_id", autoreaction.GuildID),
 			slog.String("channel_id", autoreaction.ChannelID),
@@ -164,7 +165,7 @@ func (service *Service) DeleteOne(ctx context.Context, guildID, channelID string
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to invalidate auto-reaction cache",
+			logger.AutoReactionFailedInvalidateCache,
 			slog.String("operation", "delete"),
 			slog.String("guild_id", guildID),
 			slog.String("channel_id", channelID),
@@ -201,7 +202,7 @@ func (service *Service) ObtainAll(ctx context.Context, guildID string) ([]domain
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to cache auto-reactions",
+			logger.AutoReactionFailedCacheAll,
 			slog.String("guild_id", guildID),
 			slog.Any("error", err),
 		)

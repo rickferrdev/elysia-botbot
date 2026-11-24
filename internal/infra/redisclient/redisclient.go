@@ -2,12 +2,14 @@ package redisclient
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/rickferrdev/elysia-botbot/internal/config/env"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/logger"
 	"go.uber.org/fx"
 )
 
@@ -27,15 +29,17 @@ type FxArgs struct {
 	Logger    *slog.Logger
 }
 
-var Provide = fx.Provide(New)
-var Invoke = fx.Invoke(func(redisclient *RedisClient) error {
-	return redisclient.Start()
-})
+var (
+	Provide = fx.Provide(New)
+	Invoke  = fx.Invoke(func(redisclient *RedisClient) error {
+		return redisclient.Start()
+	})
+)
 
 func New(args FxArgs) (*RedisClient, error) {
 	redisDB, err := strconv.Atoi(args.Env.RedisDB)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", logger.RedisFailedParseIndexDB, err)
 	}
 	opts := redis.Options{
 		Addr:     args.Env.RedisHost,
@@ -62,7 +66,7 @@ func (redisclient *RedisClient) Start() error {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if _, err := redisclient.DB.Ping(ctx).Result(); err != nil {
-				return err
+				return fmt.Errorf("%s: %w", logger.RedisFailedPingDB, err)
 			}
 			return nil
 		},
@@ -70,7 +74,10 @@ func (redisclient *RedisClient) Start() error {
 			if redisclient.cancel != nil {
 				redisclient.cancel()
 			}
-			return redisclient.DB.Close()
+			if err := redisclient.DB.Close(); err != nil {
+				return fmt.Errorf("%s: %w", logger.RedisFailedCloseConnection, err)
+			}
+			return nil
 		},
 	})
 

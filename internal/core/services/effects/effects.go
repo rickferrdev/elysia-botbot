@@ -13,6 +13,7 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/config/env"
 	"github.com/rickferrdev/elysia-botbot/internal/core"
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/logger"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repositories/dbeffects"
 	"github.com/rickferrdev/elysia-botbot/internal/platform/cache"
@@ -118,7 +119,7 @@ func (service *Service) ObtainOne(ctx context.Context, guildID, userID string) (
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to cache user_id",
+			logger.EffectFailedCache,
 			slog.String("guild_id", guildID),
 			slog.String("user_id", userID),
 			slog.Any("error", err),
@@ -154,7 +155,7 @@ func (service *Service) ObtainAll(ctx context.Context, guildID string) (*[]domai
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to cache auto-reactions",
+			logger.EffectFailedCacheAll,
 			slog.String("guild_id", guildID),
 			slog.Any("error", err),
 		)
@@ -178,7 +179,7 @@ func (service *Service) CreateOne(ctx context.Context, effect domain.Effect) (*d
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to invalidate effect cache",
+			logger.EffectFailedInvalidateCache,
 			slog.String("operation", "create"),
 			slog.String("guild_id", data.GuildID),
 			slog.String("user_id", data.UserID),
@@ -205,7 +206,7 @@ func (service *Service) UpdateOne(ctx context.Context, effect domain.Effect) (*d
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to invalidate effect cache",
+			logger.EffectFailedInvalidateCache,
 			slog.String("operation", "update"),
 			slog.String("guild_id", effect.GuildID),
 			slog.String("user_id", effect.UserID),
@@ -231,8 +232,8 @@ func (service *Service) DeleteOne(ctx context.Context, guildID, userID string) (
 	)
 	if err != nil {
 		service.logger.Error(
-			"failed to invalidate effect cache",
-			slog.String("operation", "update"),
+			logger.EffectFailedInvalidateCache,
+			slog.String("operation", "delete"),
 			slog.String("guild_id", guildID),
 			slog.String("user_id", userID),
 			slog.Any("error", err),

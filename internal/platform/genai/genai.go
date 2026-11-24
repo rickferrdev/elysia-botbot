@@ -66,10 +66,6 @@ type GenerateContentResponse struct {
 const maxAttempts = 3
 
 func (platform *Platform) GenerateContent(ctx context.Context, text string, config GenerateContentConfig) (*GenerateContentResponse, error) {
-	if platform == nil || platform.Client == nil {
-		return nil, core.NewAppError("genai client unavailable", CodeInternalServer, errors.New("genai client is not configured"))
-	}
-
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		response, err := platform.Client.Models.GenerateContent(ctx,
 			"gemini-3.5-flash-lite",

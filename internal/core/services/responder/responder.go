@@ -9,6 +9,7 @@ import (
 	"github.com/discord-go/discord.go/interactions"
 	"github.com/discord-go/discord.go/messages"
 	"github.com/discord-go/discord.go/rest"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/logger"
 	"go.uber.org/fx"
 )
 
@@ -190,10 +191,10 @@ func WithCodeContent(code ResponderCode) Content {
 
 func (service *Service) SenderContent(ctx *bot.MessageContext, content Content, cause error) {
 	if cause != nil {
-		slog.Error("response cause", slog.String("cause", cause.Error()))
+		service.Logger.Error(logger.ResponderFailedResponseCause, slog.String("cause", cause.Error()))
 	}
 	if ctx == nil {
-		service.Logger.Error("cannot send interaction message context response: context is nil")
+		service.Logger.Error(logger.ResponderNilMessageContext)
 		return
 	}
 
@@ -205,17 +206,17 @@ func (service *Service) SenderContent(ctx *bot.MessageContext, content Content, 
 	}
 
 	if _, err := ctx.Reply(text.String()); err != nil {
-		service.Logger.Error("failed to send message reply", slog.String("error", err.Error()))
+		service.Logger.Error(logger.ResponderFailedSendMessageReply, slog.String("error", err.Error()))
 		return
 	}
 }
 
 func (service *Service) Sender(ctx *bot.InteractionContext, responder interactions.InteractionCallbackData, cause error) {
 	if cause != nil {
-		slog.Error("response cause", slog.String("cause", cause.Error()))
+		service.Logger.Error(logger.ResponderFailedResponseCause, slog.String("cause", cause.Error()))
 	}
 	if ctx == nil {
-		service.Logger.Error("cannot send interaction response: context is nil")
+		service.Logger.Error(logger.ResponderNilInteractionContext)
 		return
 	}
 
@@ -227,7 +228,7 @@ func (service *Service) Sender(ctx *bot.InteractionContext, responder interactio
 				if cause != nil {
 					attrs = append(attrs, slog.String("cause", cause.Error()))
 				}
-				service.Logger.ErrorContext(ctx.Context(), "invalid embed in response", attrs...)
+				service.Logger.ErrorContext(ctx.Context(), logger.ResponderInvalidEmbed, attrs...)
 				return
 			}
 
@@ -245,11 +246,11 @@ func (service *Service) Sender(ctx *bot.InteractionContext, responder interactio
 			Flags:      &responder.Flags,
 		}
 		if _, err := ctx.EditReplyComplex(params); err != nil {
-			service.Logger.Error("failed to edit interaction reply", slog.String("error", err.Error()))
+			service.Logger.Error(logger.ResponderFailedEditInteraction, slog.String("error", err.Error()))
 		}
 	default:
 		if err := ctx.ReplyComplex(&responder); err != nil {
-			service.Logger.Error("failed to send initial interaction reply", slog.String("error", err.Error()))
+			service.Logger.Error(logger.ResponderFailedSendInteraction, slog.String("error", err.Error()))
 		}
 	}
 }

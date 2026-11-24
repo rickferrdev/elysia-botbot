@@ -8,6 +8,7 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/core/domain"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/autoreactions"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/logger"
 	"github.com/rickferrdev/elysia-botbot/internal/outbound/databases/repoerrors"
 	"go.uber.org/fx"
 )
@@ -52,7 +53,7 @@ func (event *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 		}
 
 		event.logger.Error(
-			"failed to get auto-reaction",
+			logger.AutoReactionEventFailedGet,
 			slog.String("guild_id", ctx.GuildID.String()),
 			slog.String("channel_id", ctx.ChannelID().String()),
 			slog.Any("error", err),
@@ -68,7 +69,7 @@ func (event *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 
 		if err := ctx.React(data.Emoji); err != nil {
 			event.logger.Error(
-				"failed to add auto-reaction",
+				logger.AutoReactionEventFailedAdd,
 				slog.String("guild_id", ctx.GuildID.String()),
 				slog.String("channel_id", ctx.ChannelID().String()),
 				slog.Any("error", err),
@@ -83,7 +84,7 @@ func (event *Event) AutoReactionsMessageCreate(ctx *bot.MessageContext) {
 
 		if err := ctx.React(data.Emoji); err != nil {
 			event.logger.Error(
-				"failed to add auto-reaction",
+				logger.AutoReactionEventFailedAdd,
 				slog.String("guild_id", ctx.GuildID.String()),
 				slog.String("channel_id", ctx.ChannelID().String()),
 				slog.Any("error", err),

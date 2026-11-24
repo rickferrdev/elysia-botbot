@@ -13,6 +13,7 @@ import (
 	"github.com/rickferrdev/elysia-botbot/internal/config/env"
 	"github.com/rickferrdev/elysia-botbot/internal/core/services/effects"
 	"github.com/rickferrdev/elysia-botbot/internal/infra/discordclient"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/logger"
 	"go.uber.org/fx"
 )
 
@@ -53,14 +54,28 @@ func (event *Event) MessageCreate(ctx *bot.MessageContext) {
 		if errors.Is(err, effects.ErrEffectNotFound) {
 			return
 		}
-		event.logger.Info("failed to retrieve from the database using user_id", slog.Any("error", err))
+		event.logger.Info(
+			logger.EffectEventFailedRetrieve,
+			slog.String("guild_id", ctx.GuildID.String()),
+			slog.String("user_id", ctx.Author.ID.String()),
+			slog.Any("error", err),
+		)
 		return
 	}
 	if effect.UserID != ctx.Author.ID.String() {
 		return
 	}
 	if effect.Expiration.Before(time.Now()) {
-		return
+		_, err := event.service.DeleteOne(ctx.Context(), ctx.GuildID.String(), effect.UserID)
+		if err != nil {
+			event.logger.Info(
+				logger.EffectEventFailedDeleteExpired,
+				slog.String("guild_id", ctx.GuildID.String()),
+				slog.String("user_id", effect.UserID),
+				slog.Any("error", err),
+			)
+			return
+		}
 	}
 
 	timeout, cancel := context.WithTimeout(ctx.Context(), 30*time.Second)
@@ -68,7 +83,7 @@ func (event *Event) MessageCreate(ctx *bot.MessageContext) {
 
 	content, err := event.service.Generate(timeout, ctx.Content, effect.Type)
 	if err != nil {
-		event.logger.Error("failed to transform message with Gemini", slog.Any("error", err))
+		event.logger.Error(logger.EffectEventFailedGenerateMessage, slog.Any("error", err))
 		return
 	}
 
@@ -83,12 +98,20 @@ func (event *Event) MessageCreate(ctx *bot.MessageContext) {
 		Avatar: &avatar,
 	})
 	if err != nil {
-		event.logger.Error("create webhook for channel", slog.Any("channel_id", ctx.ChannelID), slog.Any("error", err))
+		event.logger.Error(
+			logger.EffectEventFailedCreateWebhook,
+			slog.String("channel_id", ctx.ChannelID().String()),
+			slog.Any("error", err),
+		)
 		return
 	}
 	defer func() {
 		if err := event.client.Bot.Rest.DeleteWebhook(ctx.Context(), hook.ID); err != nil {
-			event.logger.Error("failed to delete webhook", slog.Any("error", err))
+			event.logger.Error(
+				logger.EffectEventFailedDeleteWebhook,
+				slog.String("channel_id", ctx.ChannelID().String()),
+				slog.Any("error", err),
+			)
 		}
 	}()
 
@@ -98,11 +121,19 @@ func (event *Event) MessageCreate(ctx *bot.MessageContext) {
 		AvatarURL: avatar,
 	})
 	if err != nil {
-		event.logger.Error("failed to send transformed message via Discord webhook", slog.Any("error", err))
+		event.logger.Error(
+			logger.EffectEventFailedSendWebhook,
+			slog.String("channel_id", ctx.ChannelID().String()),
+			slog.Any("error", err),
+		)
 		return
 	}
 
 	if err := ctx.Delete(); err != nil {
-		event.logger.Error("failed to delete original message", slog.Any("error", err))
+		event.logger.Error(
+			logger.EffectEventFailedDeleteMessage,
+			slog.String("channel_id", ctx.ChannelID().String()),
+			slog.Any("error", err),
+		)
 	}
 }

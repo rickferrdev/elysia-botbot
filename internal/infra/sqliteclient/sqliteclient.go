@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rickferrdev/elysia-botbot/internal/config/env"
+	"github.com/rickferrdev/elysia-botbot/internal/infra/logger"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
@@ -32,16 +33,15 @@ func New(args FxArgs) (*SqliteClient, error) {
 	dataSource := fmt.Sprintf("file:%v?cache=shared&mode=rwc", args.Env.SqliteDB)
 	connection, err := sql.Open(sqliteshim.ShimName, dataSource)
 	if err != nil {
-		args.Logger.Warn("failed to connect to the database; in-memory mode will be used", slog.Any("error", err))
+		args.Logger.Warn(logger.SQLiteFailedConnectionAttempt, slog.Any("error", err))
 		connection, err = sql.Open(sqliteshim.ShimName, "file:database?mode=memory&cache=shared")
 		if err != nil {
-			args.Logger.Error("failed to connect to memory mode", slog.Any("error", err))
-			return nil, fmt.Errorf("failed to connect to memory mode: %w", err)
+			return nil, fmt.Errorf("%s: %w", logger.SQLiteFailedConnectionMemoryMode, err)
 		}
 	}
 
 	if connection == nil {
-		return nil, fmt.Errorf("failed to connect to the database: %w", err)
+		return nil, fmt.Errorf("%s: %w", logger.SQLiteFailedConnectionNil, err)
 	}
 
 	connection.SetMaxOpenConns(1)
@@ -51,10 +51,16 @@ func New(args FxArgs) (*SqliteClient, error) {
 		OnStart: func(ctx context.Context) error {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 			defer cancel()
-			return database.PingContext(ctx)
+			if err := database.PingContext(ctx); err != nil {
+				return fmt.Errorf("%s: %w", logger.SQLiteFailedPingDB, err)
+			}
+			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			return database.Close()
+			if err := database.Close(); err != nil {
+				return fmt.Errorf("%s: %w", logger.SQLiteFailedCloseConnection, err)
+			}
+			return nil
 		},
 	})
 
